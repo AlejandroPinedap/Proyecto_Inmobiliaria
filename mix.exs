@@ -15,7 +15,7 @@ defmodule ProyectoInmobiliaria.MixProject do
   def application do
     [
       extra_applications: [:logger],
-      mod: {ProyectoInmobiliaria.Application, []}
+      mod: {Inmobiliaria.Application, []}
     ]
   end
 

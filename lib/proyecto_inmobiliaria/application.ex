@@ -1,20 +1,27 @@
-defmodule ProyectoInmobiliaria.Application do
-  # See https://hexdocs.pm/elixir/Application.html
-  # for more information on OTP Applications
-  @moduledoc false
+defmodule Inmobiliaria.Application do
 
   use Application
 
+  alias Inmobiliaria.Property.PropertyManager
+
   @impl true
   def start(_type, _args) do
+
     children = [
-      # Starts a worker by calling: ProyectoInmobiliaria.Worker.start_link(arg)
-      # {ProyectoInmobiliaria.Worker, arg}
+      Inmobiliaria.Supervisors.PropertySupervisor
     ]
 
-    # See https://hexdocs.pm/elixir/Supervisor.html
-    # for other strategies and supported options
-    opts = [strategy: :one_for_one, name: ProyectoInmobiliaria.Supervisor]
-    Supervisor.start_link(children, opts)
+    opts = [
+      strategy: :one_for_one,
+      name: Inmobiliaria.Supervisor
+    ]
+
+    {:ok, pid} =
+      Supervisor.start_link(children, opts)
+
+    # Restaurar propiedades
+    PropertyManager.restore_properties()
+
+    {:ok, pid}
   end
 end
