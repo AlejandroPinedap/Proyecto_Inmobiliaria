@@ -1,7 +1,5 @@
 defmodule Inmobiliaria.Operations.OperationLogger do
 
-  @file "data/results.log"
-
   # =========================
   # REGISTRAR OPERACIÓN
   # =========================
@@ -20,11 +18,20 @@ defmodule Inmobiliaria.Operations.OperationLogger do
       |> DateTime.to_string()
 
     line =
-      "#{date};cliente=#{client};responsable=#{owner};" <>
-      "propiedad=#{property_id};operacion=#{operation};" <>
-      "ubicacion=#{city};precio=#{price};estado=completada\n"
+      "#{date};" <>
+      "cliente=#{client};" <>
+      "responsable=#{owner};" <>
+      "propiedad=#{property_id};" <>
+      "operacion=#{operation};" <>
+      "ubicacion=#{city};" <>
+      "precio=#{price};" <>
+      "estado=completada\n"
 
-    File.write!(@file, line, [:append])
+    File.write!(
+      "data/results.log",
+      line,
+      [:append]
+    )
 
     :ok
   end
@@ -35,13 +42,23 @@ defmodule Inmobiliaria.Operations.OperationLogger do
 
   def show_history do
 
-    if File.exists?(@file) do
+    if File.exists?("data/results.log") do
 
-      @file
-      |> File.read!()
-      |> IO.puts()
+      content =
+        File.read!("data/results.log")
+
+      if String.trim(content) == "" do
+
+        IO.puts("No hay operaciones registradas")
+
+      else
+
+        IO.puts("\n=== HISTORIAL ===\n")
+        IO.puts(content)
+      end
 
     else
+
       IO.puts("No hay operaciones")
     end
   end

@@ -1,10 +1,17 @@
 defmodule Inmobiliaria.Users.UserManager do
 
+  # =========================
+  # CONNECT
+  # =========================
+
   def connect(username, password, role) do
 
-    users = load_users()
+    users =
+      load_users()
 
-    case Enum.find(users, fn u -> u.username == username end) do
+    case Enum.find(users, fn u ->
+           u.username == username
+         end) do
 
       nil ->
 
@@ -30,17 +37,74 @@ defmodule Inmobiliaria.Users.UserManager do
   end
 
   # =========================
-  # CARGAR USUARIOS
+  # LOGIN
+  # =========================
+
+  def login(username, password) do
+
+    users =
+      load_users()
+
+    case Enum.find(users, fn u ->
+
+           u.username == username and
+           u.password == password
+
+         end) do
+
+      nil ->
+        {:error, "Credenciales inválidas"}
+
+      user ->
+        {:ok, user}
+    end
+  end
+
+  # =========================
+  # REGISTER
+  # =========================
+
+  def register(username, password, role) do
+
+    users =
+      load_users()
+
+    exists? =
+
+      Enum.any?(users, fn user ->
+        user.username == username
+      end)
+
+    if exists? do
+
+      {:error, "El usuario ya existe"}
+
+    else
+
+      user = %{
+        username: username,
+        password: password,
+        role: role,
+        points: 0
+      }
+
+      save_user(user)
+
+      {:ok, user}
+    end
+  end
+
+  # =========================
+  # LOAD USERS
   # =========================
 
   def load_users do
 
-    if File.exists?(@file) do
+    if File.exists?("data/users.dat") do
 
-      @file
+      "data/users.dat"
       |> File.read!()
-      |> String.split("
-", trim: true)
+      |> String.split("\n", trim: true)
       |> Enum.map(&parse_user/1)
 
     else
@@ -49,20 +113,26 @@ defmodule Inmobiliaria.Users.UserManager do
   end
 
   # =========================
-  # GUARDAR USUARIO
+  # SAVE USER
   # =========================
 
   def save_user(user) do
 
     line =
-      "#{user.username};#{user.password};#{user.role};#{user.points}
-"
+      "#{user.username};" <>
+      "#{user.password};" <>
+      "#{user.role};" <>
+      "#{user.points}\n"
 
-    File.write!(@file, line, [:append])
+    File.write!(
+      "data/users.dat",
+      line,
+      [:append]
+    )
   end
 
   # =========================
-  # PARSEAR
+  # PARSE USER
   # =========================
 
   defp parse_user(line) do
@@ -77,54 +147,67 @@ defmodule Inmobiliaria.Users.UserManager do
       points: String.to_integer(points)
     }
   end
+
   # =========================
-# ACTUALIZAR PUNTOS
-# =========================
+  # ADD POINTS
+  # =========================
 
-def add_points(username, points) do
+  def add_points(username, points) do
 
-  users =
+    users =
+      load_users()
+
+    updated_users =
+
+      Enum.map(users, fn user ->
+
+        if user.username == username do
+
+          %{
+            user |
+            points: user.points + points
+          }
+
+        else
+          user
+        end
+      end)
+
+    rewrite_users(updated_users)
+  end
+
+  # =========================
+  # REWRITE USERS
+  # =========================
+
+  def rewrite_users(users) do
+
+    content =
+
+      Enum.map_join(users, "\n", fn user ->
+
+        "#{user.username};" <>
+        "#{user.password};" <>
+        "#{user.role};" <>
+        "#{user.points}"
+
+      end)
+
+    File.write!(
+      "data/users.dat",
+      content
+    )
+  end
+
+  # =========================
+  # RANKING
+  # =========================
+
+  def ranking do
+
     load_users()
-
-  updated_users =
-    Enum.map(users, fn user ->
-
-      if user.username == username do
-
-        %{user | points: user.points + points}
-
-      else
-        user
-      end
+    |> Enum.sort_by(fn user ->
+      -user.points
     end)
-
-  rewrite_users(updated_users)
-end
-
-# =========================
-# REESCRIBIR ARCHIVO
-# =========================
-
-def rewrite_users(users) do
-
-  content =
-    Enum.map_join(users, "\n", fn user ->
-
-      "#{user.username};#{user.password};" <>
-      "#{user.role};#{user.points}"
-
-    end)
-
-  File.write!(@file, content)
-end
-
-# =========================
-# RANKING
-# =========================
-
-def ranking do
-
-  load_users()
-  |> Enum.sort_by(fn user -> -user.points end)
-end
+  end
 end

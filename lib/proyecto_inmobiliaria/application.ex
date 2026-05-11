@@ -8,6 +8,27 @@ defmodule Inmobiliaria.Application do
   def start(_type, _args) do
 
     children = [
+
+      # =========================
+      # REGISTRY
+      # =========================
+
+      {
+        Registry,
+        keys: :unique,
+        name: Inmobiliaria.PropertyRegistry
+      },
+
+      # =========================
+      # SESSION MANAGER
+      # =========================
+
+      Inmobiliaria.Session.SessionManager,
+
+      # =========================
+      # PROPERTY SUPERVISOR
+      # =========================
+
       Inmobiliaria.Supervisors.PropertySupervisor
     ]
 
@@ -17,9 +38,15 @@ defmodule Inmobiliaria.Application do
     ]
 
     {:ok, pid} =
-      Supervisor.start_link(children, opts)
+      Supervisor.start_link(
+        children,
+        opts
+      )
 
-    # Restaurar propiedades
+    # =========================
+    # RESTAURAR PROPIEDADES
+    # =========================
+
     PropertyManager.restore_properties()
 
     {:ok, pid}
