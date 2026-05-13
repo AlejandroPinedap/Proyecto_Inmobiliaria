@@ -280,10 +280,7 @@ defmodule Inmobiliaria.CLI do
 
     properties =
       PropertyManager.list_properties()
-
-    Enum.each(properties, fn p ->
-      IO.puts(p)
-    end)
+      PropertyManager.show_properties(properties)
   end
 
   # =========================
