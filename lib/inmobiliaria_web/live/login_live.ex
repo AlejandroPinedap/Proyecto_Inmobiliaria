@@ -28,15 +28,19 @@ defmodule InmobiliariaWeb.LoginLive do
       {:ok, user} ->
         {:noreply,
          socket
-         |> put_flash(:info, "Bienvenido #{user.username}")
-         |> redirect(to: "/dashboard")}
+         |> assign(:current_user, %{username: user.username, role: user.role})
+         |> push_navigate(to: "/dashboard?user=#{user.username}&role=#{user.role}")}
 
       {:error, msg} ->
         {:noreply, assign(socket, error: msg, success: nil)}
     end
   end
 
-  def handle_event("register", %{"username" => username, "password" => password, "role" => role}, socket) do
+  def handle_event(
+        "register",
+        %{"username" => username, "password" => password, "role" => role},
+        socket
+      ) do
     case UserManager.register(username, password, role) do
       {:ok, _user} ->
         {:noreply,
