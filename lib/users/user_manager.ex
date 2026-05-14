@@ -5,7 +5,6 @@ defmodule Inmobiliaria.Users.UserManager do
   # =========================
 
   def connect(username, password, role) do
-
     users =
       load_users()
 
@@ -41,15 +40,12 @@ defmodule Inmobiliaria.Users.UserManager do
   # =========================
 
   def login(username, password) do
-
     users =
       load_users()
 
     case Enum.find(users, fn u ->
-
            u.username == username and
-           u.password == password
-
+             u.password == password
          end) do
 
       nil ->
@@ -66,31 +62,41 @@ defmodule Inmobiliaria.Users.UserManager do
 
   def register(username, password, role) do
 
-    users =
-      load_users()
+    cond do
 
-    exists? =
+      String.trim(username) == "" ->
+        {:error, "El usuario es obligatorio"}
 
-      Enum.any?(users, fn user ->
-        user.username == username
-      end)
+      String.trim(password) == "" ->
+        {:error, "La contraseña es obligatoria"}
 
-    if exists? do
+      true ->
 
-      {:error, "El usuario ya existe"}
+        users =
+          load_users()
 
-    else
+        exists? =
+          Enum.any?(users, fn user ->
+            user.username == username
+          end)
 
-      user = %{
-        username: username,
-        password: password,
-        role: role,
-        points: 0
-      }
+        if exists? do
 
-      save_user(user)
+          {:error, "El usuario ya existe"}
 
-      {:ok, user}
+        else
+
+          user = %{
+            username: username,
+            password: password,
+            role: role,
+            points: 0
+          }
+
+          save_user(user)
+
+          {:ok, user}
+        end
     end
   end
 
@@ -118,11 +124,14 @@ defmodule Inmobiliaria.Users.UserManager do
 
   def save_user(user) do
 
+    # Crear carpeta si no existe
+    File.mkdir_p!("data")
+
     line =
       "#{user.username};" <>
-      "#{user.password};" <>
-      "#{user.role};" <>
-      "#{user.points}\n"
+        "#{user.password};" <>
+        "#{user.role};" <>
+        "#{user.points}\n"
 
     File.write!(
       "data/users.dat",
@@ -158,14 +167,13 @@ defmodule Inmobiliaria.Users.UserManager do
       load_users()
 
     updated_users =
-
       Enum.map(users, fn user ->
 
         if user.username == username do
 
           %{
-            user |
-            points: user.points + points
+            user
+            | points: user.points + points
           }
 
         else
@@ -183,20 +191,55 @@ defmodule Inmobiliaria.Users.UserManager do
   def rewrite_users(users) do
 
     content =
-
-      Enum.map_join(users, "\n", fn user ->
-
-        "#{user.username};" <>
-        "#{user.password};" <>
-        "#{user.role};" <>
-        "#{user.points}"
-
+      users
+      |> Enum.map(fn user ->
+        "#{user.username};#{user.password};#{user.role};#{user.points}\n"
       end)
+      |> Enum.join("")
 
-    File.write!(
-      "data/users.dat",
-      content
-    )
+    File.write!("data/users.dat", content)
+  end
+
+  # =========================
+  # DISCONNECT
+  # =========================
+
+  def disconnect(username) do
+
+    users =
+      load_users()
+
+    case Enum.find(users, fn u ->
+           u.username == username
+         end) do
+
+      nil ->
+        {:error, "Usuario no encontrado"}
+
+      _user ->
+        {:ok, "#{username} desconectado"}
+    end
+  end
+
+  # =========================
+  # GET SCORE
+  # =========================
+
+  def get_score(username) do
+
+    users =
+      load_users()
+
+    case Enum.find(users, fn u ->
+           u.username == username
+         end) do
+
+      nil ->
+        {:error, "Usuario no encontrado"}
+
+      user ->
+        {:ok, user.points}
+    end
   end
 
   # =========================
