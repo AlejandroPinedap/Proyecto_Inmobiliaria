@@ -1,4 +1,7 @@
 prop001;casa;venta;Armenia;3000000;carlos;sold
 porp002;apartamento;venta;Bogota;30000000000;pedro;sold
-prop002;Casa;venta;armenia;2000000;pedro;available
-prop003;Apartamento;venta;Bogota;70000000;pedro;available
+prop002;Casa;venta;armenia;2000000;pedro;sold
+prop003;Apartamento;venta;Bogota;70000000;pedro;sold
+prop004;Apartamento;venta;Pereira;300000;pedro;sold
+prop006;Casa;arriendo;Armenia;300000;arrendo;rented
+prop005;Casa;arriendo;Armenia;30000000;arrendo;available;3;40

@@ -14,13 +14,24 @@ defmodule InmobiliariaWeb.Layouts do
         <script src="https://cdn.jsdelivr.net/npm/phoenix_live_view@1.1.30/priv/static/phoenix_live_view.min.js"></script>
         <script>
           window.addEventListener("load", function() {
-            var csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content");
-            var liveSocket = new LiveView.LiveSocket("/live", Phoenix.Socket, {
-              params: {_csrf_token: csrfToken}
-            });
-            liveSocket.connect();
-            window.liveSocket = liveSocket;
-          });
+    var csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content");
+
+    var Hooks = {};
+    Hooks.ScrollBottom = {
+    mounted() { this.scrollToBottom(); },
+    updated() { this.scrollToBottom(); },
+    scrollToBottom() {
+      this.el.scrollTop = this.el.scrollHeight;
+    }
+    };
+
+    var liveSocket = new LiveView.LiveSocket("/live", Phoenix.Socket, {
+    params: {_csrf_token: csrfToken},
+    hooks: Hooks
+    });
+    liveSocket.connect();
+    window.liveSocket = liveSocket;
+    });
         </script>
       </head>
       <body>

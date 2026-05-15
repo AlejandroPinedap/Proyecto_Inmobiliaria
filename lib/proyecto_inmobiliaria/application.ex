@@ -6,6 +6,9 @@ defmodule Inmobiliaria.Application do
   @impl true
   def start(_type, _args) do
     children = [
+      # PubSub para chat en tiempo real
+      {Phoenix.PubSub, name: Inmobiliaria.PubSub},
+
       # Registry de propiedades
       {Registry, keys: :unique, name: Inmobiliaria.PropertyRegistry},
 
@@ -29,7 +32,6 @@ defmodule Inmobiliaria.Application do
 
     {:ok, pid} = Supervisor.start_link(children, opts)
 
-    # Restaurar propiedades al iniciar
     PropertyManager.restore_properties()
 
     {:ok, pid}

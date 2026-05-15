@@ -2,3 +2,7 @@
 2026-05-13 23:29:22.454000Z;cliente=ana;responsable=carlos;propiedad=prop001;operacion=compra;ubicacion=Armenia;precio=3000000;estado=completada
 2026-05-14 00:30:04.335000Z;cliente=ana;responsable=carlos;propiedad=prop001;operacion=compra;ubicacion=Armenia;precio=300000000;estado=completada
 2026-05-14 04:20:45.457000Z;cliente=ana;responsable=carlos;propiedad=prop001;operacion=compra;ubicacion=Armenia;precio=3000000;estado=completada
+2026-05-15 06:46:59.565000Z;cliente=ana;responsable=pedro;propiedad=prop002;operacion=compra;ubicacion=armenia;precio=2000000;estado=completada
+2026-05-15 06:47:06.727000Z;cliente=ana;responsable=pedro;propiedad=prop003;operacion=compra;ubicacion=Bogota;precio=70000000;estado=completada
+2026-05-15 06:52:05.322000Z;cliente=ana;responsable=pedro;propiedad=prop004;operacion=compra;ubicacion=Pereira;precio=300000;estado=completada
+2026-05-15 06:57:28.766000Z;cliente=ana;responsable=arrendo;propiedad=prop006;operacion=arriendo;ubicacion=Armenia;precio=300000;estado=completada

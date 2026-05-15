@@ -3,6 +3,7 @@ defmodule InmobiliariaWeb.PropertiesLive do
 
   alias Inmobiliaria.Property.PropertyManager
   alias Inmobiliaria.Users.UserManager
+  alias Inmobiliaria.Operations.OperationLogger
 
   def mount(params, _session, socket) do
     username = Map.get(params, "user", "invitado")
@@ -20,6 +21,7 @@ defmodule InmobiliariaWeb.PropertiesLive do
        filter_modality: "",
        filter_status: "",
        show_form: false,
+       edit_property: nil,
        form_error: nil,
        form: empty_form(username)
      )}
@@ -60,11 +62,46 @@ defmodule InmobiliariaWeb.PropertiesLive do
   end
 
   def handle_event("show_form", _, socket) do
-    {:noreply, assign(socket, show_form: true, form_error: nil)}
+    {:noreply, assign(socket, show_form: true, edit_property: nil, form_error: nil)}
   end
 
   def handle_event("hide_form", _, socket) do
-    {:noreply, assign(socket, show_form: false, form_error: nil)}
+    {:noreply, assign(socket, show_form: false, edit_property: nil, form_error: nil)}
+  end
+
+  def handle_event("edit_property", %{"id" => id}, socket) do
+    property = Enum.find(socket.assigns.properties, &(&1.id == id))
+    {:noreply, assign(socket, edit_property: property, show_form: false, form_error: nil)}
+  end
+
+  def handle_event("cancel_edit", _, socket) do
+    {:noreply, assign(socket, edit_property: nil, form_error: nil)}
+  end
+
+  def handle_event("update_property", params, socket) do
+    username = socket.assigns.username
+    role = socket.assigns.role
+    property = socket.assigns.edit_property
+
+    updated = %{
+      property
+      | type: params["type"],
+        city: params["city"],
+        price: String.to_integer(params["price"] || "0"),
+        rooms: String.to_integer(params["rooms"] || "0"),
+        area: String.to_integer(params["area"] || "0")
+    }
+
+    PropertyManager.update_property(updated)
+    properties = load_for_role(username, role)
+
+    {:noreply,
+     assign(socket,
+       properties: properties,
+       filtered: properties,
+       edit_property: nil,
+       form_error: nil
+     )}
   end
 
   def handle_event("create_property", params, socket) do
@@ -84,6 +121,8 @@ defmodule InmobiliariaWeb.PropertiesLive do
       modality: modality,
       city: params["city"],
       price: String.to_integer(params["price"] || "0"),
+      rooms: String.to_integer(params["rooms"] || "0"),
+      area: String.to_integer(params["area"] || "0"),
       owner: username,
       status: :available
     }
@@ -136,15 +175,23 @@ defmodule InmobiliariaWeb.PropertiesLive do
         updated = %{property | status: :sold}
         PropertyManager.update_property(updated)
         UserManager.add_points(username, 10)
+        UserManager.add_points(property.owner, 15)
+
+        OperationLogger.log_operation(
+          username,
+          property.owner,
+          id,
+          "compra",
+          property.city,
+          property.price
+        )
+
         properties = load_for_role(username, socket.assigns.role)
 
         {:noreply,
          socket
          |> assign(properties: properties, filtered: properties, form_error: nil)
-         |> push_navigate(
-           to:
-             "/chat?user=#{username}&role=#{socket.assigns.role}&property=#{id}&owner=#{property.owner}"
-         )}
+         |> push_navigate(to: "/properties?user=#{username}&role=#{socket.assigns.role}")}
     end
   end
 
@@ -163,15 +210,23 @@ defmodule InmobiliariaWeb.PropertiesLive do
         updated = %{property | status: :rented}
         PropertyManager.update_property(updated)
         UserManager.add_points(username, 5)
+        UserManager.add_points(property.owner, 10)
+
+        OperationLogger.log_operation(
+          username,
+          property.owner,
+          id,
+          "arriendo",
+          property.city,
+          property.price
+        )
+
         properties = load_for_role(username, socket.assigns.role)
 
         {:noreply,
          socket
          |> assign(properties: properties, filtered: properties, form_error: nil)
-         |> push_navigate(
-           to:
-             "/chat?user=#{username}&role=#{socket.assigns.role}&property=#{id}&owner=#{property.owner}"
-         )}
+         |> push_navigate(to: "/properties?user=#{username}&role=#{socket.assigns.role}")}
     end
   end
 
@@ -268,8 +323,7 @@ defmodule InmobiliariaWeb.PropertiesLive do
                 </div>
                 <div>
                   <label style="display:block; font-size:0.8rem; color:#666; margin-bottom:0.25rem;">Tipo</label>
-                  <select name="type"
-                    style="width:100%; padding:0.6rem; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;">
+                  <select name="type" style="width:100%; padding:0.6rem; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;">
                     <option value="Casa">Casa</option>
                     <option value="Apartamento">Apartamento</option>
                     <option value="Local">Local</option>
@@ -279,8 +333,7 @@ defmodule InmobiliariaWeb.PropertiesLive do
                 </div>
                 <div>
                   <label style="display:block; font-size:0.8rem; color:#666; margin-bottom:0.25rem;">Modalidad</label>
-                  <select name="modality"
-                    style="width:100%; padding:0.6rem; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;">
+                  <select name="modality" style="width:100%; padding:0.6rem; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;">
                     <%= if @role == "arrendador" do %>
                       <option value="arriendo">Arriendo</option>
                     <% else %>
@@ -300,6 +353,18 @@ defmodule InmobiliariaWeb.PropertiesLive do
                     style="width:100%; padding:0.6rem; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;"
                     placeholder="Ej: 250000000"/>
                 </div>
+                <div>
+    <label style="display:block; font-size:0.8rem; color:#666; margin-bottom:0.25rem;">Habitaciones</label>
+    <input type="number" name="rooms" min="0" value="0"
+    style="width:100%; padding:0.6rem; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;"
+    placeholder="Ej: 3"/>
+    </div>
+    <div>
+    <label style="display:block; font-size:0.8rem; color:#666; margin-bottom:0.25rem;">Área (m²)</label>
+    <input type="number" name="area" min="0" value="0"
+    style="width:100%; padding:0.6rem; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;"
+    placeholder="Ej: 120"/>
+    </div>
               </div>
               <div style="display:flex; gap:0.75rem;">
                 <button type="submit"
@@ -315,8 +380,64 @@ defmodule InmobiliariaWeb.PropertiesLive do
           </div>
         <% end %>
 
+        <!-- FORMULARIO EDITAR PROPIEDAD -->
+        <%= if @edit_property do %>
+          <div style="background:white; padding:1.5rem; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.08); margin-bottom:1.5rem; border-left:4px solid #f59e0b;">
+            <h3 style="margin:0 0 1rem; color:#1a1a2e;">✏️ Editar Propiedad — <%= @edit_property.id %></h3>
+            <%= if @form_error do %>
+              <div style="background:#fee2e2; color:#dc2626; padding:0.75rem; border-radius:8px; margin-bottom:1rem;">
+                ⚠️ <%= @form_error %>
+              </div>
+            <% end %>
+            <form phx-submit="update_property">
+              <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:1rem; margin-bottom:1rem;">
+                <div>
+                  <label style="display:block; font-size:0.8rem; color:#666; margin-bottom:0.25rem;">Tipo</label>
+                  <select name="type" style="width:100%; padding:0.6rem; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;">
+                    <option value="Casa" selected={@edit_property.type == "Casa"}>Casa</option>
+                    <option value="Apartamento" selected={@edit_property.type == "Apartamento"}>Apartamento</option>
+                    <option value="Local" selected={@edit_property.type == "Local"}>Local</option>
+                    <option value="Lote" selected={@edit_property.type == "Lote"}>Lote</option>
+                    <option value="Finca" selected={@edit_property.type == "Finca"}>Finca</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="display:block; font-size:0.8rem; color:#666; margin-bottom:0.25rem;">Ciudad</label>
+                  <input type="text" name="city" required value={@edit_property.city}
+                    style="width:100%; padding:0.6rem; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;"/>
+                </div>
+                <div>
+                  <label style="display:block; font-size:0.8rem; color:#666; margin-bottom:0.25rem;">Precio</label>
+                  <input type="number" name="price" required min="0" value={@edit_property.price}
+                    style="width:100%; padding:0.6rem; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;"/>
+                </div>
+                <div>
+    <label style="display:block; font-size:0.8rem; color:#666; margin-bottom:0.25rem;">Habitaciones</label>
+    <input type="number" name="rooms" min="0" value={Map.get(@edit_property, :rooms, 0)}
+    style="width:100%; padding:0.6rem; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;"/>
+    </div>
+    <div>
+    <label style="display:block; font-size:0.8rem; color:#666; margin-bottom:0.25rem;">Área (m²)</label>
+    <input type="number" name="area" min="0" value={Map.get(@edit_property, :area, 0)}
+    style="width:100%; padding:0.6rem; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;"/>
+    </div>
+              </div>
+              <div style="display:flex; gap:0.75rem;">
+                <button type="submit"
+                  style="padding:0.6rem 1.5rem; background:#f59e0b; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;">
+                  Guardar Cambios
+                </button>
+                <button type="button" phx-click="cancel_edit"
+                  style="padding:0.6rem 1.5rem; background:#f3f4f6; color:#666; border:1px solid #ddd; border-radius:8px; cursor:pointer;">
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          </div>
+        <% end %>
+
         <!-- ERROR GLOBAL -->
-        <%= if @form_error && !@show_form do %>
+        <%= if @form_error && !@show_form && !@edit_property do %>
           <div style="background:#fee2e2; color:#dc2626; padding:0.75rem; border-radius:8px; margin-bottom:1rem;">
             ⚠️ <%= @form_error %>
           </div>
@@ -346,11 +467,13 @@ defmodule InmobiliariaWeb.PropertiesLive do
                   <div style="font-size:1.25rem; font-weight:700; color:#4f46e5; margin-bottom:0.5rem;">
                     $<%= format_number(p.price) %>
                   </div>
-                  <div style="display:flex; gap:1rem; font-size:0.8rem; color:#888; margin-bottom:0.75rem;">
-                    <span>🏷️ <%= p.modality %></span>
-                    <span>👤 <%= p.owner %></span>
-                    <span>🔑 <%= p.id %></span>
-                  </div>
+                  <div style="display:flex; gap:1rem; font-size:0.8rem; color:#888; margin-bottom:0.75rem; flex-wrap:wrap;">
+    <span>🏷️ <%= p.modality %></span>
+    <span>👤 <%= p.owner %></span>
+    <span>🔑 <%= p.id %></span>
+    <span>🛏️ <%= Map.get(p, :rooms, 0) %> hab</span>
+    <span>📐 <%= Map.get(p, :area, 0) %> m²</span>
+    </div>
 
                   <!-- BOTONES VENDEDOR/ARRENDADOR -->
                   <%= if @role in ["vendedor", "arrendador"] do %>
@@ -377,6 +500,11 @@ defmodule InmobiliariaWeb.PropertiesLive do
                           </button>
                         <% end %>
                       <% end %>
+                      <!-- BOTÓN EDITAR -->
+                      <button phx-click="edit_property" phx-value-id={p.id}
+                        style="padding:0.3rem 0.75rem; background:#e0e7ff; color:#4f46e5; border:none; border-radius:6px; font-size:0.8rem; cursor:pointer;">
+                        ✏️ Editar
+                      </button>
                     </div>
                   <% end %>
 

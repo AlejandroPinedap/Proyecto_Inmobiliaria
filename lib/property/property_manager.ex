@@ -32,7 +32,9 @@ defmodule Inmobiliaria.Property.PropertyManager do
         "#{property.city};" <>
         "#{property.price};" <>
         "#{property.owner};" <>
-        "#{property.status}\n"
+        "#{property.status};" <>
+        "#{Map.get(property, :rooms, 0)};" <>
+        "#{Map.get(property, :area, 0)}\n"
 
     File.write!(@properties_file, line, [:append])
   end
@@ -51,7 +53,7 @@ defmodule Inmobiliaria.Property.PropertyManager do
     content =
       properties
       |> Enum.map(fn p ->
-        "#{p.id};#{p.type};#{p.modality};#{p.city};#{p.price};#{p.owner};#{p.status}\n"
+        "#{p.id};#{p.type};#{p.modality};#{p.city};#{p.price};#{p.owner};#{p.status};#{Map.get(p, :rooms, 0)};#{Map.get(p, :area, 0)}\n"
       end)
       |> Enum.join("")
 
@@ -87,6 +89,19 @@ defmodule Inmobiliaria.Property.PropertyManager do
 
   defp parse_property(line) do
     case String.split(line, ";") do
+      [id, type, modality, city, price, owner, status, rooms, area] ->
+        %{
+          id: id,
+          type: type,
+          modality: modality,
+          city: city,
+          price: String.to_integer(price),
+          owner: owner,
+          status: String.to_atom(status),
+          rooms: String.to_integer(rooms),
+          area: String.to_integer(area)
+        }
+
       [id, type, modality, city, price, owner, status] ->
         %{
           id: id,
@@ -95,7 +110,9 @@ defmodule Inmobiliaria.Property.PropertyManager do
           city: city,
           price: String.to_integer(price),
           owner: owner,
-          status: String.to_atom(status)
+          status: String.to_atom(status),
+          rooms: 0,
+          area: 0
         }
 
       _ ->
