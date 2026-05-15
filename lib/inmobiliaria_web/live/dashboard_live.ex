@@ -13,23 +13,16 @@ defmodule InmobiliariaWeb.DashboardLive do
 
     visible_properties =
       case role do
-        "admin" -> properties
-        "agente" -> Enum.filter(properties, &(&1.owner == username))
-        _ -> Enum.filter(properties, &(&1.status == :available))
+        r when r in ["vendedor", "arrendador"] ->
+          Enum.filter(properties, &(&1.owner == username))
+
+        _ ->
+          Enum.filter(properties, &(&1.status == :available))
       end
 
     stats =
       case role do
-        "admin" ->
-          %{
-            total: length(properties),
-            available: Enum.count(properties, &(&1.status == :available)),
-            sold: Enum.count(properties, &(&1.status == :sold)),
-            rented: Enum.count(properties, &(&1.status == :rented)),
-            total_users: length(users)
-          }
-
-        "agente" ->
+        r when r in ["vendedor", "arrendador"] ->
           %{
             total: length(visible_properties),
             available: Enum.count(visible_properties, &(&1.status == :available)),
@@ -48,6 +41,9 @@ defmodule InmobiliariaWeb.DashboardLive do
           }
       end
 
+    ranking = UserManager.ranking() |> Enum.take(5)
+    _ = users
+
     by_city =
       visible_properties
       |> Enum.group_by(& &1.city)
@@ -59,8 +55,6 @@ defmodule InmobiliariaWeb.DashboardLive do
       visible_properties
       |> Enum.group_by(& &1.type)
       |> Enum.map(fn {type, props} -> {type, length(props)} end)
-
-    ranking = if role == "admin", do: UserManager.ranking() |> Enum.take(5), else: []
 
     {:ok,
      assign(socket,
@@ -95,46 +89,32 @@ defmodule InmobiliariaWeb.DashboardLive do
           <span style={"color:#{role_color(@role)}; font-weight:600; text-transform:capitalize;"}><%= @role %></span>
         </p>
 
-        <!-- STAT CARDS -->
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:1rem; margin-bottom:2rem;">
-
           <div style="background:white; padding:1.5rem; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.08); border-left:4px solid #4f46e5;">
             <div style="font-size:2rem; font-weight:700; color:#4f46e5;"><%= @stats.total %></div>
             <div style="color:#666; font-size:0.875rem; margin-top:0.25rem;">
-              <%= if @role == "agente", do: "Mis Propiedades", else: "Total Propiedades" %>
+              <%= if @role in ["vendedor", "arrendador"], do: "Mis Propiedades", else: "Disponibles" %>
             </div>
           </div>
-
           <div style="background:white; padding:1.5rem; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.08); border-left:4px solid #16a34a;">
             <div style="font-size:2rem; font-weight:700; color:#16a34a;"><%= @stats.available %></div>
             <div style="color:#666; font-size:0.875rem; margin-top:0.25rem;">Disponibles</div>
           </div>
-
           <%= if @stats.sold != nil do %>
             <div style="background:white; padding:1.5rem; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.08); border-left:4px solid #dc2626;">
               <div style="font-size:2rem; font-weight:700; color:#dc2626;"><%= @stats.sold %></div>
               <div style="color:#666; font-size:0.875rem; margin-top:0.25rem;">Vendidas</div>
             </div>
           <% end %>
-
           <%= if @stats.rented != nil do %>
             <div style="background:white; padding:1.5rem; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.08); border-left:4px solid #f59e0b;">
               <div style="font-size:2rem; font-weight:700; color:#f59e0b;"><%= @stats.rented %></div>
               <div style="color:#666; font-size:0.875rem; margin-top:0.25rem;">Arrendadas</div>
             </div>
           <% end %>
-
-          <%= if @stats.total_users != nil do %>
-            <div style="background:white; padding:1.5rem; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.08); border-left:4px solid #0891b2;">
-              <div style="font-size:2rem; font-weight:700; color:#0891b2;"><%= @stats.total_users %></div>
-              <div style="color:#666; font-size:0.875rem; margin-top:0.25rem;">Usuarios</div>
-            </div>
-          <% end %>
-
         </div>
 
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:2rem;">
-
           <div style="background:white; padding:1.5rem; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.08);">
             <h3 style="margin:0 0 1rem; color:#1a1a2e;">📍 Por Ciudad</h3>
             <%= if Enum.empty?(@by_city) do %>
@@ -151,7 +131,6 @@ defmodule InmobiliariaWeb.DashboardLive do
               <% end %>
             <% end %>
           </div>
-
           <div style="background:white; padding:1.5rem; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.08);">
             <h3 style="margin:0 0 1rem; color:#1a1a2e;">🏗️ Por Tipo</h3>
             <%= if Enum.empty?(@by_type) do %>
@@ -168,13 +147,13 @@ defmodule InmobiliariaWeb.DashboardLive do
               <% end %>
             <% end %>
           </div>
-
         </div>
 
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
-
           <div style="background:white; padding:1.5rem; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.08);">
-            <h3 style="margin:0 0 1rem; color:#1a1a2e;">🏘️ <%= if @role == "agente", do: "Mis Propiedades", else: "Últimas Propiedades" %></h3>
+            <h3 style="margin:0 0 1rem; color:#1a1a2e;">
+              🏘️ <%= if @role in ["vendedor", "arrendador"], do: "Mis Propiedades", else: "Propiedades Disponibles" %>
+            </h3>
             <%= if Enum.empty?(@properties) do %>
               <p style="color:#999;">Sin propiedades registradas</p>
             <% else %>
@@ -183,11 +162,11 @@ defmodule InmobiliariaWeb.DashboardLive do
                   <div style="display:flex; justify-content:space-between;">
                     <span style="font-weight:600; color:#1a1a2e;"><%= p.type %> - <%= p.city %></span>
                     <span style={"font-size:0.75rem; padding:0.2rem 0.5rem; border-radius:999px; background:#{status_color(p.status)}20; color:#{status_color(p.status)};"}>
-                      <%= p.status %>
+                      <%= status_label(p.status) %>
                     </span>
                   </div>
                   <div style="color:#888; font-size:0.875rem; margin-top:0.25rem;">
-                    $<%= p.price |> to_string() |> format_number() %> · <%= p.modality %>
+                    $<%= format_number(p.price) %> · <%= p.modality %>
                   </div>
                 </div>
               <% end %>
@@ -198,43 +177,36 @@ defmodule InmobiliariaWeb.DashboardLive do
           </div>
 
           <div style="background:white; padding:1.5rem; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.08);">
-            <%= if @role == "admin" do %>
-              <h3 style="margin:0 0 1rem; color:#1a1a2e;">🏆 Ranking de Usuarios</h3>
-              <%= if Enum.empty?(@ranking) do %>
-                <p style="color:#999;">Sin usuarios registrados</p>
-              <% else %>
-                <%= for {user, idx} <- Enum.with_index(@ranking, 1) do %>
-                  <div style="display:flex; align-items:center; gap:0.75rem; padding:0.75rem 0; border-bottom:1px solid #f0f0f0;">
-                    <span style="font-size:1.25rem; width:2rem; text-align:center;"><%= medal(idx) %></span>
-                    <div style="flex:1;">
-                      <div style="font-weight:600; color:#1a1a2e;"><%= user.username %></div>
-                      <div style="font-size:0.75rem; color:#888;"><%= user.role %></div>
-                    </div>
-                    <span style="font-weight:700; color:#f59e0b;"><%= user.points %> pts</span>
-                  </div>
-                <% end %>
-              <% end %>
-            <% else %>
-              <h3 style="margin:0 0 1rem; color:#1a1a2e;">💡 Acciones Rápidas</h3>
-              <div style="display:flex; flex-direction:column; gap:0.75rem;">
+            <h3 style="margin:0 0 1rem; color:#1a1a2e;">💡 Acciones Rápidas</h3>
+            <div style="display:flex; flex-direction:column; gap:0.75rem;">
+              <a href={"/properties?user=#{@username}&role=#{@role}"}
+                style="padding:0.75rem 1rem; background:#e0e7ff; color:#4f46e5; border-radius:8px; text-decoration:none; font-weight:500;">
+                🔍 Ver Propiedades
+              </a>
+              <a href={"/chat?user=#{@username}&role=#{@role}"}
+                style="padding:0.75rem 1rem; background:#dcfce7; color:#16a34a; border-radius:8px; text-decoration:none; font-weight:500;">
+                💬 Ir al Chat
+              </a>
+              <%= if @role in ["vendedor", "arrendador"] do %>
                 <a href={"/properties?user=#{@username}&role=#{@role}"}
-                  style="padding:0.75rem 1rem; background:#e0e7ff; color:#4f46e5; border-radius:8px; text-decoration:none; font-weight:500;">
-                  🔍 Ver Propiedades
+                  style="padding:0.75rem 1rem; background:#fef3c7; color:#92400e; border-radius:8px; text-decoration:none; font-weight:500;">
+                  ➕ Publicar Propiedad
                 </a>
-                <a href={"/chat?user=#{@username}&role=#{@role}"}
-                  style="padding:0.75rem 1rem; background:#dcfce7; color:#16a34a; border-radius:8px; text-decoration:none; font-weight:500;">
-                  💬 Ir al Chat
-                </a>
-                <%= if @role == "agente" do %>
-                  <a href={"/properties/new?user=#{@username}&role=#{@role}"}
-                    style="padding:0.75rem 1rem; background:#fef3c7; color:#92400e; border-radius:8px; text-decoration:none; font-weight:500;">
-                    ➕ Crear Propiedad
-                  </a>
-                <% end %>
-              </div>
-            <% end %>
+              <% end %>
+              <%= if length(@ranking) > 0 do %>
+                <div style="margin-top:0.5rem;">
+                  <h4 style="margin:0 0 0.75rem; color:#1a1a2e; font-size:0.9rem;">🏆 Top Ranking</h4>
+                  <%= for {user, idx} <- Enum.with_index(@ranking, 1) do %>
+                    <div style="display:flex; align-items:center; gap:0.5rem; padding:0.4rem 0; border-bottom:1px solid #f0f0f0; font-size:0.85rem;">
+                      <span><%= medal(idx) %></span>
+                      <span style="flex:1; color:#1a1a2e;"><%= user.username %></span>
+                      <span style="color:#f59e0b; font-weight:600;"><%= user.points %> pts</span>
+                    </div>
+                  <% end %>
+                </div>
+              <% end %>
+            </div>
           </div>
-
         </div>
       </div>
     </div>
@@ -246,23 +218,32 @@ defmodule InmobiliariaWeb.DashboardLive do
   defp status_color(:rented), do: "#f59e0b"
   defp status_color(_), do: "#888"
 
+  defp status_label(:available), do: "Disponible"
+  defp status_label(:sold), do: "Vendida"
+  defp status_label(:rented), do: "Arrendada"
+  defp status_label(other), do: to_string(other)
+
   defp medal(1), do: "🥇"
   defp medal(2), do: "🥈"
   defp medal(3), do: "🥉"
   defp medal(_), do: "👤"
 
-  defp format_number(str) do
-    str
+  defp format_number(price) when is_integer(price) do
+    price
+    |> Integer.to_string()
     |> String.graphemes()
     |> Enum.reverse()
     |> Enum.chunk_every(3)
+    |> Enum.map(&Enum.join/1)
     |> Enum.join(".")
     |> String.graphemes()
     |> Enum.reverse()
     |> Enum.join("")
   end
 
-  defp role_color("admin"), do: "#dc2626"
-  defp role_color("agente"), do: "#f59e0b"
+  defp format_number(price), do: to_string(price)
+
+  defp role_color("vendedor"), do: "#f59e0b"
+  defp role_color("arrendador"), do: "#0891b2"
   defp role_color(_), do: "#16a34a"
 end

@@ -121,10 +121,10 @@ defmodule InmobiliariaWeb.LoginLive do
             <div style="margin-bottom:1.5rem;">
               <label style="display:block; margin-bottom:0.25rem; color:#555; font-size:0.875rem;">Rol</label>
               <select name="role"
-                style="width:100%; padding:0.75rem; border:1px solid #ddd; border-radius:8px; font-size:1rem; box-sizing:border-box;">
-                <option value="cliente">Cliente</option>
-                <option value="agente">Agente</option>
-                <option value="admin">Administrador</option>
+              style="width:100%; padding:0.75rem; border:1px solid #ddd; border-radius:8px; font-size:1rem; box-sizing:border-box;">
+              <option value="cliente">Cliente</option>
+              <option value="vendedor">Vendedor</option>
+              <option value="arrendador">Arrendador</option>
               </select>
             </div>
             <button type="submit"
