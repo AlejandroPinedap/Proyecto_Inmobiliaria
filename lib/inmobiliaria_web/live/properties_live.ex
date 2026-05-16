@@ -20,6 +20,8 @@ defmodule InmobiliariaWeb.PropertiesLive do
        filter_type: "",
        filter_modality: "",
        filter_status: "",
+       filter_price_min: "",
+       filter_price_max: "",
        show_form: false,
        edit_property: nil,
        form_error: nil,
@@ -32,6 +34,8 @@ defmodule InmobiliariaWeb.PropertiesLive do
     type = Map.get(params, "type", "")
     modality = Map.get(params, "modality", "")
     status = Map.get(params, "status", "")
+    price_min = Map.get(params, "price_min", "")
+    price_max = Map.get(params, "price_max", "")
 
     filtered =
       socket.assigns.properties
@@ -39,6 +43,7 @@ defmodule InmobiliariaWeb.PropertiesLive do
       |> filter_by(:type, type)
       |> filter_by(:modality, modality)
       |> filter_by_status(status)
+      |> filter_by_price(price_min, price_max)
 
     {:noreply,
      assign(socket,
@@ -46,7 +51,9 @@ defmodule InmobiliariaWeb.PropertiesLive do
        filter_city: city,
        filter_type: type,
        filter_modality: modality,
-       filter_status: status
+       filter_status: status,
+       filter_price_min: price_min,
+       filter_price_max: price_max
      )}
   end
 
@@ -57,7 +64,9 @@ defmodule InmobiliariaWeb.PropertiesLive do
        filter_city: "",
        filter_type: "",
        filter_modality: "",
-       filter_status: ""
+       filter_status: "",
+       filter_price_min: "",
+       filter_price_max: ""
      )}
   end
 
@@ -270,6 +279,24 @@ defmodule InmobiliariaWeb.PropertiesLive do
     end
   end
 
+  defp filter_by_price(list, "", ""), do: list
+
+  defp filter_by_price(list, min, "") do
+    min = String.to_integer(min)
+    Enum.filter(list, &(&1.price >= min))
+  end
+
+  defp filter_by_price(list, "", max) do
+    max = String.to_integer(max)
+    Enum.filter(list, &(&1.price <= max))
+  end
+
+  defp filter_by_price(list, min, max) do
+    min = String.to_integer(min)
+    max = String.to_integer(max)
+    Enum.filter(list, &(&1.price >= min && &1.price <= max))
+  end
+
   def render(assigns) do
     ~H"""
     <div style="min-height:100vh; background:#f0f2f5; font-family:sans-serif;">
@@ -343,6 +370,18 @@ defmodule InmobiliariaWeb.PropertiesLive do
             style="padding:0.5rem 0.75rem; background:#f3f4f6; color:#666; border:1px solid #ddd; border-radius:6px; font-size:0.875rem; cursor:pointer;">
             Limpiar
           </button>
+          <div>
+    <label style="display:block; font-size:0.75rem; color:#666; margin-bottom:0.25rem;">Precio mín</label>
+    <input type="number" name="price_min" value={@filter_price_min} min="0"
+    placeholder="Ej: 100000000"
+    style="padding:0.5rem 0.75rem; border:1px solid #ddd; border-radius:6px; font-size:0.875rem; width:130px;"/>
+    </div>
+    <div>
+    <label style="display:block; font-size:0.75rem; color:#666; margin-bottom:0.25rem;">Precio máx</label>
+    <input type="number" name="price_max" value={@filter_price_max} min="0"
+    placeholder="Ej: 500000000"
+    style="padding:0.5rem 0.75rem; border:1px solid #ddd; border-radius:6px; font-size:0.875rem; width:130px;"/>
+    </div>
         </form>
 
 
@@ -372,10 +411,15 @@ defmodule InmobiliariaWeb.PropertiesLive do
                   </select>
                 </div>
                 <div>
-                  <label style="display:block; font-size:0.8rem; color:#666; margin-bottom:0.25rem;">Ciudad</label>
-                  <input type="text" name="city" required
-                    style="width:100%; padding:0.6rem; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;"/>
-                </div>
+    <label style="display:block; font-size:0.8rem; color:#666; margin-bottom:0.25rem;">Ciudad</label>
+    <select name="city" required
+    style="width:100%; padding:0.6rem; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;">
+    <option value="">Selecciona una ciudad</option>
+    <%= for ciudad <- Inmobiliaria.Location.cargar_ubicaciones() do %>
+      <option value={ciudad}><%= ciudad %></option>
+    <% end %>
+    </select>
+    </div>
                 <div>
                   <label style="display:block; font-size:0.8rem; color:#666; margin-bottom:0.25rem;">Precio</label>
                   <input type="number" name="price" required min="0"
