@@ -124,7 +124,8 @@ defmodule InmobiliariaWeb.PropertiesLive do
       rooms: String.to_integer(params["rooms"] || "0"),
       area: String.to_integer(params["area"] || "0"),
       owner: username,
-      status: :available
+      status: :available,
+      buyer: ""
     }
 
     case PropertyManager.create_property(property) do
@@ -160,6 +161,10 @@ defmodule InmobiliariaWeb.PropertiesLive do
     end
   end
 
+  # =========================
+  # COMPRA — guarda buyer
+  # =========================
+
   def handle_event("buy", %{"id" => id}, socket) do
     username = socket.assigns.username
     properties = socket.assigns.properties
@@ -172,8 +177,10 @@ defmodule InmobiliariaWeb.PropertiesLive do
         {:noreply, assign(socket, form_error: "No puedes comprar tu propia propiedad")}
 
       property ->
-        updated = %{property | status: :sold}
+        # Guardamos el buyer junto con el nuevo estado
+        updated = %{property | status: :sold, buyer: username}
         PropertyManager.update_property(updated)
+
         UserManager.add_points(username, 10)
         UserManager.add_points(property.owner, 15)
 
@@ -195,6 +202,10 @@ defmodule InmobiliariaWeb.PropertiesLive do
     end
   end
 
+  # =========================
+  # ARRIENDO — guarda buyer
+  # =========================
+
   def handle_event("rent", %{"id" => id}, socket) do
     username = socket.assigns.username
     properties = socket.assigns.properties
@@ -207,8 +218,10 @@ defmodule InmobiliariaWeb.PropertiesLive do
         {:noreply, assign(socket, form_error: "No puedes arrendar tu propia propiedad")}
 
       property ->
-        updated = %{property | status: :rented}
+        # Guardamos el buyer junto con el nuevo estado
+        updated = %{property | status: :rented, buyer: username}
         PropertyManager.update_property(updated)
+
         UserManager.add_points(username, 5)
         UserManager.add_points(property.owner, 10)
 
@@ -262,64 +275,62 @@ defmodule InmobiliariaWeb.PropertiesLive do
         </div>
 
         <!-- FILTROS -->
-        <div style="background:white; padding:1.25rem; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.08); margin-bottom:1.5rem;">
-          <form phx-change="filter" phx-submit="filter">
-            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:1rem; align-items:end;">
-              <div>
-                <label style="display:block; font-size:0.8rem; color:#666; margin-bottom:0.25rem;">Ciudad</label>
-                <input type="text" name="city" value={@filter_city} placeholder="Ej: Bogotá"
-                  style="width:100%; padding:0.5rem; border:1px solid #ddd; border-radius:6px; font-size:0.9rem; box-sizing:border-box;"/>
-              </div>
-              <div>
-                <label style="display:block; font-size:0.8rem; color:#666; margin-bottom:0.25rem;">Tipo</label>
-                <input type="text" name="type" value={@filter_type} placeholder="Ej: Casa"
-                  style="width:100%; padding:0.5rem; border:1px solid #ddd; border-radius:6px; font-size:0.9rem; box-sizing:border-box;"/>
-              </div>
-              <div>
-                <label style="display:block; font-size:0.8rem; color:#666; margin-bottom:0.25rem;">Modalidad</label>
-                <select name="modality"
-                  style="width:100%; padding:0.5rem; border:1px solid #ddd; border-radius:6px; font-size:0.9rem; box-sizing:border-box;">
-                  <option value="">Todas</option>
-                  <option value="venta" selected={@filter_modality == "venta"}>Venta</option>
-                  <option value="arriendo" selected={@filter_modality == "arriendo"}>Arriendo</option>
-                </select>
-              </div>
-              <%= if @role in ["vendedor", "arrendador"] do %>
-                <div>
-                  <label style="display:block; font-size:0.8rem; color:#666; margin-bottom:0.25rem;">Estado</label>
-                  <select name="status"
-                    style="width:100%; padding:0.5rem; border:1px solid #ddd; border-radius:6px; font-size:0.9rem; box-sizing:border-box;">
-                    <option value="">Todos</option>
-                    <option value="available" selected={@filter_status == "available"}>Disponible</option>
-                    <option value="sold" selected={@filter_status == "sold"}>Vendida</option>
-                    <option value="rented" selected={@filter_status == "rented"}>Arrendada</option>
-                  </select>
-                </div>
-              <% end %>
-              <button type="button" phx-click="clear_filters"
-                style="padding:0.5rem 1rem; background:#f3f4f6; color:#666; border:1px solid #ddd; border-radius:6px; cursor:pointer; font-size:0.9rem;">
-                Limpiar
-              </button>
+        <form phx-change="filter" style="background:white; padding:1rem 1.25rem; border-radius:12px; margin-bottom:1.5rem; box-shadow:0 2px 8px rgba(0,0,0,0.06); display:flex; gap:0.75rem; flex-wrap:wrap; align-items:flex-end;">
+          <div>
+            <label style="display:block; font-size:0.75rem; color:#666; margin-bottom:0.25rem;">Ciudad</label>
+            <input type="text" name="city" value={@filter_city} placeholder="Ej: Bogotá"
+              style="padding:0.5rem 0.75rem; border:1px solid #ddd; border-radius:6px; font-size:0.875rem;"/>
+          </div>
+          <div>
+            <label style="display:block; font-size:0.75rem; color:#666; margin-bottom:0.25rem;">Tipo</label>
+            <select name="type" style="padding:0.5rem 0.75rem; border:1px solid #ddd; border-radius:6px; font-size:0.875rem;">
+              <option value="">Todos</option>
+              <option value="Casa" selected={@filter_type == "Casa"}>Casa</option>
+              <option value="Apartamento" selected={@filter_type == "Apartamento"}>Apartamento</option>
+              <option value="Local" selected={@filter_type == "Local"}>Local</option>
+              <option value="Bodega" selected={@filter_type == "Bodega"}>Bodega</option>
+              <option value="Lote" selected={@filter_type == "Lote"}>Lote</option>
+              <option value="Finca" selected={@filter_type == "Finca"}>Finca</option>
+            </select>
+          </div>
+          <div>
+            <label style="display:block; font-size:0.75rem; color:#666; margin-bottom:0.25rem;">Modalidad</label>
+            <select name="modality" style="padding:0.5rem 0.75rem; border:1px solid #ddd; border-radius:6px; font-size:0.875rem;">
+              <option value="">Todas</option>
+              <option value="venta" selected={@filter_modality == "venta"}>Venta</option>
+              <option value="arriendo" selected={@filter_modality == "arriendo"}>Arriendo</option>
+            </select>
+          </div>
+          <%= if @role in ["vendedor", "arrendador"] do %>
+            <div>
+              <label style="display:block; font-size:0.75rem; color:#666; margin-bottom:0.25rem;">Estado</label>
+              <select name="status" style="padding:0.5rem 0.75rem; border:1px solid #ddd; border-radius:6px; font-size:0.875rem;">
+                <option value="">Todos</option>
+                <option value="available" selected={@filter_status == "available"}>Disponible</option>
+                <option value="sold" selected={@filter_status == "sold"}>Vendida</option>
+                <option value="rented" selected={@filter_status == "rented"}>Arrendada</option>
+              </select>
             </div>
-          </form>
-        </div>
+          <% end %>
+          <button type="button" phx-click="clear_filters"
+            style="padding:0.5rem 0.75rem; background:#f3f4f6; color:#666; border:1px solid #ddd; border-radius:6px; font-size:0.875rem; cursor:pointer;">
+            Limpiar
+          </button>
+        </form>
 
-        <!-- FORMULARIO NUEVA PROPIEDAD -->
+        <!-- FORMULARIO CREAR -->
         <%= if @show_form do %>
           <div style="background:white; padding:1.5rem; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.08); margin-bottom:1.5rem; border-left:4px solid #4f46e5;">
-            <h3 style="margin:0 0 1rem; color:#1a1a2e;">➕ Publicar Propiedad</h3>
+            <h3 style="margin:0 0 1rem; color:#1a1a2e;">➕ Nueva Propiedad</h3>
             <%= if @form_error do %>
-              <div style="background:#fee2e2; color:#dc2626; padding:0.75rem; border-radius:8px; margin-bottom:1rem;">
-                ⚠️ <%= @form_error %>
-              </div>
+              <div style="background:#fee2e2; color:#dc2626; padding:0.75rem; border-radius:8px; margin-bottom:1rem;">⚠️ <%= @form_error %></div>
             <% end %>
             <form phx-submit="create_property">
-              <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:1rem; margin-bottom:1rem;">
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-bottom:1rem;">
                 <div>
-                  <label style="display:block; font-size:0.8rem; color:#666; margin-bottom:0.25rem;">ID</label>
+                  <label style="display:block; font-size:0.8rem; color:#666; margin-bottom:0.25rem;">ID Propiedad</label>
                   <input type="text" name="prop_id" required
-                    style="width:100%; padding:0.6rem; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;"
-                    placeholder="Ej: P001"/>
+                    style="width:100%; padding:0.6rem; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;"/>
                 </div>
                 <div>
                   <label style="display:block; font-size:0.8rem; color:#666; margin-bottom:0.25rem;">Tipo</label>
@@ -332,39 +343,25 @@ defmodule InmobiliariaWeb.PropertiesLive do
                   </select>
                 </div>
                 <div>
-                  <label style="display:block; font-size:0.8rem; color:#666; margin-bottom:0.25rem;">Modalidad</label>
-                  <select name="modality" style="width:100%; padding:0.6rem; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;">
-                    <%= if @role == "arrendador" do %>
-                      <option value="arriendo">Arriendo</option>
-                    <% else %>
-                      <option value="venta">Venta</option>
-                    <% end %>
-                  </select>
-                </div>
-                <div>
                   <label style="display:block; font-size:0.8rem; color:#666; margin-bottom:0.25rem;">Ciudad</label>
                   <input type="text" name="city" required
-                    style="width:100%; padding:0.6rem; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;"
-                    placeholder="Ej: Medellín"/>
+                    style="width:100%; padding:0.6rem; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;"/>
                 </div>
                 <div>
                   <label style="display:block; font-size:0.8rem; color:#666; margin-bottom:0.25rem;">Precio</label>
                   <input type="number" name="price" required min="0"
-                    style="width:100%; padding:0.6rem; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;"
-                    placeholder="Ej: 250000000"/>
+                    style="width:100%; padding:0.6rem; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;"/>
                 </div>
                 <div>
-    <label style="display:block; font-size:0.8rem; color:#666; margin-bottom:0.25rem;">Habitaciones</label>
-    <input type="number" name="rooms" min="0" value="0"
-    style="width:100%; padding:0.6rem; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;"
-    placeholder="Ej: 3"/>
-    </div>
-    <div>
-    <label style="display:block; font-size:0.8rem; color:#666; margin-bottom:0.25rem;">Área (m²)</label>
-    <input type="number" name="area" min="0" value="0"
-    style="width:100%; padding:0.6rem; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;"
-    placeholder="Ej: 120"/>
-    </div>
+                  <label style="display:block; font-size:0.8rem; color:#666; margin-bottom:0.25rem;">Habitaciones</label>
+                  <input type="number" name="rooms" min="0" value="0"
+                    style="width:100%; padding:0.6rem; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;"/>
+                </div>
+                <div>
+                  <label style="display:block; font-size:0.8rem; color:#666; margin-bottom:0.25rem;">Área (m²)</label>
+                  <input type="number" name="area" min="0" value="0"
+                    style="width:100%; padding:0.6rem; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;"/>
+                </div>
               </div>
               <div style="display:flex; gap:0.75rem;">
                 <button type="submit"
@@ -380,17 +377,12 @@ defmodule InmobiliariaWeb.PropertiesLive do
           </div>
         <% end %>
 
-        <!-- FORMULARIO EDITAR PROPIEDAD -->
+        <!-- FORMULARIO EDITAR -->
         <%= if @edit_property do %>
           <div style="background:white; padding:1.5rem; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.08); margin-bottom:1.5rem; border-left:4px solid #f59e0b;">
-            <h3 style="margin:0 0 1rem; color:#1a1a2e;">✏️ Editar Propiedad — <%= @edit_property.id %></h3>
-            <%= if @form_error do %>
-              <div style="background:#fee2e2; color:#dc2626; padding:0.75rem; border-radius:8px; margin-bottom:1rem;">
-                ⚠️ <%= @form_error %>
-              </div>
-            <% end %>
+            <h3 style="margin:0 0 1rem; color:#1a1a2e;">✏️ Editar Propiedad · <%= @edit_property.id %></h3>
             <form phx-submit="update_property">
-              <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:1rem; margin-bottom:1rem;">
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-bottom:1rem;">
                 <div>
                   <label style="display:block; font-size:0.8rem; color:#666; margin-bottom:0.25rem;">Tipo</label>
                   <select name="type" style="width:100%; padding:0.6rem; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;">
@@ -412,15 +404,15 @@ defmodule InmobiliariaWeb.PropertiesLive do
                     style="width:100%; padding:0.6rem; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;"/>
                 </div>
                 <div>
-    <label style="display:block; font-size:0.8rem; color:#666; margin-bottom:0.25rem;">Habitaciones</label>
-    <input type="number" name="rooms" min="0" value={Map.get(@edit_property, :rooms, 0)}
-    style="width:100%; padding:0.6rem; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;"/>
-    </div>
-    <div>
-    <label style="display:block; font-size:0.8rem; color:#666; margin-bottom:0.25rem;">Área (m²)</label>
-    <input type="number" name="area" min="0" value={Map.get(@edit_property, :area, 0)}
-    style="width:100%; padding:0.6rem; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;"/>
-    </div>
+                  <label style="display:block; font-size:0.8rem; color:#666; margin-bottom:0.25rem;">Habitaciones</label>
+                  <input type="number" name="rooms" min="0" value={Map.get(@edit_property, :rooms, 0)}
+                    style="width:100%; padding:0.6rem; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;"/>
+                </div>
+                <div>
+                  <label style="display:block; font-size:0.8rem; color:#666; margin-bottom:0.25rem;">Área (m²)</label>
+                  <input type="number" name="area" min="0" value={Map.get(@edit_property, :area, 0)}
+                    style="width:100%; padding:0.6rem; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;"/>
+                </div>
               </div>
               <div style="display:flex; gap:0.75rem;">
                 <button type="submit"
@@ -468,12 +460,12 @@ defmodule InmobiliariaWeb.PropertiesLive do
                     $<%= format_number(p.price) %>
                   </div>
                   <div style="display:flex; gap:1rem; font-size:0.8rem; color:#888; margin-bottom:0.75rem; flex-wrap:wrap;">
-    <span>🏷️ <%= p.modality %></span>
-    <span>👤 <%= p.owner %></span>
-    <span>🔑 <%= p.id %></span>
-    <span>🛏️ <%= Map.get(p, :rooms, 0) %> hab</span>
-    <span>📐 <%= Map.get(p, :area, 0) %> m²</span>
-    </div>
+                    <span>🏷️ <%= p.modality %></span>
+                    <span>👤 <%= p.owner %></span>
+                    <span>🔑 <%= p.id %></span>
+                    <span>🛏️ <%= Map.get(p, :rooms, 0) %> hab</span>
+                    <span>📐 <%= Map.get(p, :area, 0) %> m²</span>
+                  </div>
 
                   <!-- BOTONES VENDEDOR/ARRENDADOR -->
                   <%= if @role in ["vendedor", "arrendador"] do %>
@@ -500,7 +492,6 @@ defmodule InmobiliariaWeb.PropertiesLive do
                           </button>
                         <% end %>
                       <% end %>
-                      <!-- BOTÓN EDITAR -->
                       <button phx-click="edit_property" phx-value-id={p.id}
                         style="padding:0.3rem 0.75rem; background:#e0e7ff; color:#4f46e5; border:none; border-radius:6px; font-size:0.8rem; cursor:pointer;">
                         ✏️ Editar

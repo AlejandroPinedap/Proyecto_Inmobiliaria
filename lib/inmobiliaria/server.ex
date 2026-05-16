@@ -339,7 +339,7 @@ defmodule Inmobiliaria.Server do
     username    = Map.get(session, :username)
     property_id = Map.get(session, :msg_property_id)
     owner       = Map.get(session, :msg_owner)
-    MessageManager.send_message(property_id, username, owner, text)
+    MessageManager.send_message(property_id, username, owner, username, text)
     clean_session =
       session
       |> Map.delete(:msg_property_id)

@@ -22,9 +22,12 @@ defmodule Inmobiliaria.Property.PropertyManager do
 
   # =========================
   # GUARDAR PROPIEDAD (append)
+  # Formato: id;type;modality;city;price;owner;status;rooms;area;buyer
   # =========================
 
   def save_property(property) do
+    buyer = Map.get(property, :buyer, "")
+
     line =
       "#{property.id};" <>
         "#{property.type};" <>
@@ -34,7 +37,8 @@ defmodule Inmobiliaria.Property.PropertyManager do
         "#{property.owner};" <>
         "#{property.status};" <>
         "#{Map.get(property, :rooms, 0)};" <>
-        "#{Map.get(property, :area, 0)}\n"
+        "#{Map.get(property, :area, 0)};" <>
+        "#{buyer}\n"
 
     File.write!(@properties_file, line, [:append])
   end
@@ -50,10 +54,20 @@ defmodule Inmobiliaria.Property.PropertyManager do
         if p.id == updated.id, do: updated, else: p
       end)
 
+    rewrite_properties(properties)
+  end
+
+  # =========================
+  # REESCRIBIR TODAS
+  # =========================
+
+  def rewrite_properties(properties) do
     content =
       properties
       |> Enum.map(fn p ->
-        "#{p.id};#{p.type};#{p.modality};#{p.city};#{p.price};#{p.owner};#{p.status};#{Map.get(p, :rooms, 0)};#{Map.get(p, :area, 0)}\n"
+        buyer = Map.get(p, :buyer, "")
+
+        "#{p.id};#{p.type};#{p.modality};#{p.city};#{p.price};#{p.owner};#{p.status};#{Map.get(p, :rooms, 0)};#{Map.get(p, :area, 0)};#{buyer}\n"
       end)
       |> Enum.join("")
 
@@ -78,6 +92,7 @@ defmodule Inmobiliaria.Property.PropertyManager do
       |> File.read!()
       |> String.split("\n", trim: true)
       |> Enum.map(&parse_property/1)
+      |> Enum.reject(&is_nil/1)
     else
       []
     end
@@ -85,10 +100,27 @@ defmodule Inmobiliaria.Property.PropertyManager do
 
   # =========================
   # PARSEAR PROPIEDAD
+  # Soporta formato antiguo (sin buyer) y nuevo (con buyer)
   # =========================
 
   defp parse_property(line) do
     case String.split(line, ";") do
+      # Formato nuevo: con buyer
+      [id, type, modality, city, price, owner, status, rooms, area, buyer] ->
+        %{
+          id: id,
+          type: type,
+          modality: modality,
+          city: city,
+          price: String.to_integer(price),
+          owner: owner,
+          status: String.to_atom(status),
+          rooms: String.to_integer(rooms),
+          area: String.to_integer(area),
+          buyer: buyer
+        }
+
+      # Formato con rooms/area pero sin buyer (retrocompatibilidad)
       [id, type, modality, city, price, owner, status, rooms, area] ->
         %{
           id: id,
@@ -99,9 +131,11 @@ defmodule Inmobiliaria.Property.PropertyManager do
           owner: owner,
           status: String.to_atom(status),
           rooms: String.to_integer(rooms),
-          area: String.to_integer(area)
+          area: String.to_integer(area),
+          buyer: ""
         }
 
+      # Formato mínimo sin rooms/area/buyer (retrocompatibilidad)
       [id, type, modality, city, price, owner, status] ->
         %{
           id: id,
@@ -112,12 +146,22 @@ defmodule Inmobiliaria.Property.PropertyManager do
           owner: owner,
           status: String.to_atom(status),
           rooms: 0,
-          area: 0
+          area: 0,
+          buyer: ""
         }
 
       _ ->
         nil
     end
+  end
+
+  # =========================
+  # BUSCAR POR BUYER (historial de cliente)
+  # =========================
+
+  def search_by_buyer(buyer) do
+    load_properties()
+    |> Enum.filter(fn p -> p.buyer == buyer end)
   end
 
   # =========================
@@ -192,6 +236,7 @@ defmodule Inmobiliaria.Property.PropertyManager do
         Precio: #{p.price}
         Estado: #{p.status}
         Propietario: #{p.owner}
+        Comprador: #{p.buyer}
         ------------------------
         """)
       end)

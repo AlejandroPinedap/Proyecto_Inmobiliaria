@@ -4,89 +4,127 @@ defmodule InmobiliariaWeb.ChatLive do
   alias Inmobiliaria.Messages.MessageManager
   alias Inmobiliaria.Property.PropertyManager
 
-  def mount(params, _session, socket) do
-    username = Map.get(params, "user", "invitado")
-    role = Map.get(params, "role", "cliente")
-    property_id = Map.get(params, "property", nil)
-    owner = Map.get(params, "owner", nil)
+  # =====================================================================
+  # MOUNT
+  # =====================================================================
 
-    properties =
+  def mount(params, _session, socket) do
+    username    = Map.get(params, "user", "invitado")
+    role        = Map.get(params, "role", "cliente")
+    property_id = Map.get(params, "property", nil)
+    owner_param = Map.get(params, "owner", nil)
+
+    {conversations, properties_map} =
       case role do
         r when r in ["vendedor", "arrendador"] ->
-          PropertyManager.search_by_owner(username)
+          pairs     = MessageManager.get_owner_conversations(username)
+          all_props = PropertyManager.list_properties()
+          props_map = Map.new(all_props, &{&1.id, &1})
+
+          convs =
+            Enum.map(pairs, fn {prop_id, client} ->
+              prop = Map.get(props_map, prop_id, %{id: prop_id, type: "?", city: "?", modality: "?"})
+              %{
+                key:         conv_key(prop_id, client, username),
+                property_id: prop_id,
+                client:      client,
+                owner:       username,
+                label:       "#{prop.type} - #{prop.city}",
+                sublabel:    "Cliente: #{client}"
+              }
+            end)
+
+          {convs, props_map}
+
         _ ->
-          PropertyManager.available_properties()
+          props     = PropertyManager.available_properties()
+          props_map = Map.new(props, &{&1.id, &1})
+
+          convs =
+            Enum.map(props, fn p ->
+              %{
+                key:         conv_key(p.id, username, p.owner),
+                property_id: p.id,
+                client:      username,
+                owner:       p.owner,
+                label:       "#{p.type} - #{p.city}",
+                sublabel:    "Propietario: #{p.owner}"
+              }
+            end)
+
+          {convs, props_map}
       end
 
-    # Suscribirse a todos los canales de propiedades relevantes
+    selected =
+      cond do
+        property_id != nil and owner_param != nil ->
+          Enum.find(conversations, fn c ->
+            c.property_id == property_id and c.owner == owner_param
+          end) ||
+            %{
+              key:         conv_key(property_id, username, owner_param),
+              property_id: property_id,
+              client:      username,
+              owner:       owner_param,
+              label:       label_for(properties_map, property_id),
+              sublabel:    "Propietario: #{owner_param}"
+            }
+
+        conversations != [] ->
+          hd(conversations)
+
+        true ->
+          nil
+      end
+
+    conversations =
+      if selected != nil and not Enum.any?(conversations, &(&1.key == selected.key)) do
+        [selected | conversations]
+      else
+        conversations
+      end
+
     if connected?(socket) do
       Phoenix.PubSub.subscribe(Inmobiliaria.PubSub, "user:#{username}")
-      Enum.each(properties, fn p ->
-        Phoenix.PubSub.subscribe(Inmobiliaria.PubSub, "property:#{p.id}")
+      Enum.each(conversations, fn c ->
+        Phoenix.PubSub.subscribe(Inmobiliaria.PubSub, "conv:#{c.key}")
       end)
     end
 
-    {selected_property, selected_owner, messages} =
-      if property_id do
-        msgs = load_messages(property_id)
-        {property_id, owner, msgs}
-      else
-        case properties do
-          [first | _] ->
-            msgs = load_messages(first.id)
-            {first.id, first.owner, msgs}
-          [] ->
-            {nil, nil, []}
-        end
-      end
-
-    # Contar mensajes no leídos por propiedad
-    unread =
-      properties
-      |> Enum.map(fn p ->
-        count = length(load_messages(p.id))
-        {p.id, count}
-      end)
-      |> Map.new()
+    messages =
+      if selected, do: load_conv_messages(selected), else: []
 
     {:ok,
      assign(socket,
-       username: username,
-       role: role,
-       properties: properties,
-       selected_property: selected_property,
-       selected_owner: selected_owner,
-       messages: messages,
-       new_message: "",
-       unread: unread,
-       last_counts: unread
+       username:      username,
+       role:          role,
+       conversations: conversations,
+       selected:      selected,
+       messages:      messages,
+       new_message:   "",
+       unread:        %{}
      )}
   end
 
-  def handle_event("select_property", %{"property_id" => prop_id}, socket) do
-    all_props = PropertyManager.list_properties()
-    owner =
-      case Enum.find(all_props, &(&1.id == prop_id)) do
-        nil -> nil
-        p -> p.owner
+  # =====================================================================
+  # EVENTOS
+  # =====================================================================
+
+  def handle_event("select_conv", %{"key" => key}, socket) do
+    conv = Enum.find(socket.assigns.conversations, &(&1.key == key))
+
+    if conv do
+      if connected?(socket) do
+        Phoenix.PubSub.subscribe(Inmobiliaria.PubSub, "conv:#{key}")
       end
 
-    if connected?(socket) do
-      Phoenix.PubSub.subscribe(Inmobiliaria.PubSub, "property:#{prop_id}")
+      messages = load_conv_messages(conv)
+      unread   = Map.delete(socket.assigns.unread, key)
+
+      {:noreply, assign(socket, selected: conv, messages: messages, unread: unread)}
+    else
+      {:noreply, socket}
     end
-
-    messages = load_messages(prop_id)
-
-    # Marcar como leído
-    unread = Map.put(socket.assigns.unread, prop_id, length(messages))
-
-    {:noreply,
-     assign(socket,
-       selected_property: prop_id,
-       selected_owner: owner,
-       messages: messages,
-       unread: unread
-     )}
   end
 
   def handle_event("update_message", %{"message" => msg}, socket) do
@@ -95,27 +133,37 @@ defmodule InmobiliariaWeb.ChatLive do
 
   def handle_event("send_message", %{"message" => msg}, socket) do
     username = socket.assigns.username
-    property_id = socket.assigns.selected_property
-    owner = socket.assigns.selected_owner
+    conv     = socket.assigns.selected
 
-    if property_id && String.trim(msg) != "" do
-      MessageManager.send_message(property_id, username, owner, msg)
+    if conv && String.trim(msg) != "" do
+      text = String.trim(msg)
+
+      # Guardamos quién envió (sender) además del par client/owner
+      MessageManager.send_message(conv.property_id, conv.client, conv.owner, username, text)
 
       message = %{
-        date: DateTime.utc_now() |> DateTime.to_string(),
-        property_id: property_id,
-        client: username,
-        owner: owner,
-        message: String.trim(msg)
+        date:        DateTime.utc_now() |> DateTime.to_string(),
+        property_id: conv.property_id,
+        client:      conv.client,
+        owner:       conv.owner,
+        sender:      username,
+        message:     text
       }
 
       Phoenix.PubSub.broadcast(
         Inmobiliaria.PubSub,
-        "property:#{property_id}",
+        "conv:#{conv.key}",
         {:new_message, message}
       )
 
+      Phoenix.PubSub.broadcast(
+        Inmobiliaria.PubSub,
+        "user:#{conv.owner}",
+        {:new_conversation, conv}
+      )
+
       messages = socket.assigns.messages ++ [message]
+
       {:noreply,
        socket
        |> assign(messages: messages, new_message: "")
@@ -125,32 +173,59 @@ defmodule InmobiliariaWeb.ChatLive do
     end
   end
 
-  def handle_info({:new_message, message}, socket) do
-    messages = socket.assigns.messages
-    already_exists = Enum.any?(messages, fn m ->
-      m.date == message.date && m.client == message.client
-    end)
+  # =====================================================================
+  # INFO (PubSub)
+  # =====================================================================
 
-    if already_exists do
+  def handle_info({:new_message, message}, socket) do
+    key = conv_key(message.property_id, message.client, message.owner)
+
+    already =
+      if socket.assigns.selected && socket.assigns.selected.key == key do
+        Enum.any?(socket.assigns.messages, fn m ->
+          m.date == message.date and m.sender == message.sender
+        end)
+      else
+        false
+      end
+
+    if already do
       {:noreply, socket}
     else
-      new_messages = messages ++ [message]
-
-      # Notificar si el mensaje es de otra propiedad
-      unread =
-        if message.property_id != socket.assigns.selected_property do
-          current = Map.get(socket.assigns.unread, message.property_id, 0)
-          Map.put(socket.assigns.unread, message.property_id, current + 1)
+      socket =
+        if socket.assigns.selected && socket.assigns.selected.key == key do
+          socket
+          |> assign(messages: socket.assigns.messages ++ [message])
+          |> push_event("scroll_bottom", %{})
         else
-          socket.assigns.unread
+          unread = Map.update(socket.assigns.unread, key, 1, &(&1 + 1))
+          assign(socket, unread: unread)
         end
 
-      {:noreply,
-       socket
-       |> assign(messages: new_messages, unread: unread)
-       |> push_event("scroll_bottom", %{})}
+      {:noreply, socket}
     end
   end
+
+  def handle_info({:new_conversation, conv}, socket) do
+    already = Enum.any?(socket.assigns.conversations, &(&1.key == conv.key))
+
+    if already do
+      {:noreply, socket}
+    else
+      if connected?(socket) do
+        Phoenix.PubSub.subscribe(Inmobiliaria.PubSub, "conv:#{conv.key}")
+      end
+
+      conversations = socket.assigns.conversations ++ [conv]
+      unread        = Map.put(socket.assigns.unread, conv.key, 1)
+
+      {:noreply, assign(socket, conversations: conversations, unread: unread)}
+    end
+  end
+
+  # =====================================================================
+  # RENDER
+  # =====================================================================
 
   def render(assigns) do
     ~H"""
@@ -176,28 +251,39 @@ defmodule InmobiliariaWeb.ChatLive do
             </div>
 
             <div style="padding:0.75rem;">
-              <%= if Enum.empty?(@properties) do %>
-                <p style="color:#999; font-size:0.875rem; padding:0.5rem;">Sin propiedades disponibles</p>
+              <%= if Enum.empty?(@conversations) do %>
+                <p style="color:#999; font-size:0.875rem; padding:0.5rem;">
+                  <%= if @role in ["vendedor", "arrendador"] do %>
+                    Aún no tienes conversaciones. Los clientes te escribirán desde Propiedades.
+                  <% else %>
+                    No hay propiedades disponibles para contactar.
+                  <% end %>
+                </p>
               <% else %>
-                <%= for p <- @properties do %>
+                <%= for conv <- @conversations do %>
                   <%
-                    saved = Map.get(@unread, p.id, 0)
-                    is_selected = @selected_property == p.id
-                    has_new = !is_selected && saved > 0
+                    is_selected  = @selected && @selected.key == conv.key
+                    unread_count = Map.get(@unread, conv.key, 0)
                   %>
                   <button
-                    phx-click="select_property"
-                    phx-value-property_id={p.id}
-                    style={"width:100%; text-align:left; padding:0.75rem; border:none; border-radius:8px; cursor:pointer; margin-bottom:0.25rem; background:#{if is_selected, do: "#e0e7ff", else: "#f9fafb"}; border-left:3px solid #{if is_selected, do: "#4f46e5", else: "transparent"};"}>
+                    phx-click="select_conv"
+                    phx-value-key={conv.key}
+                    style={"width:100%; text-align:left; padding:0.75rem; border:none; border-radius:8px; cursor:pointer; margin-bottom:0.25rem;
+                      background:#{if is_selected, do: "#e0e7ff", else: "#f9fafb"};
+                      border-left:3px solid #{if is_selected, do: "#4f46e5", else: "transparent"};"}>
                     <div style="display:flex; justify-content:space-between; align-items:center;">
-                      <div style="font-weight:600; font-size:0.875rem; color:#1a1a2e;"><%= p.type %> - <%= p.city %></div>
-                      <%= if has_new do %>
-                        <span style="background:#dc2626; color:white; font-size:0.7rem; padding:0.1rem 0.4rem; border-radius:999px; font-weight:700;">
-                          nuevo
+                      <div style="font-weight:600; font-size:0.875rem; color:#1a1a2e; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:170px;">
+                        <%= conv.label %>
+                      </div>
+                      <%= if unread_count > 0 do %>
+                        <span style="background:#dc2626; color:white; font-size:0.7rem; padding:0.1rem 0.45rem; border-radius:999px; font-weight:700; flex-shrink:0;">
+                          <%= unread_count %>
                         </span>
                       <% end %>
                     </div>
-                    <div style="font-size:0.75rem; color:#888; margin-top:0.1rem;">🔑 <%= p.id %> · <%= p.modality %></div>
+                    <div style="font-size:0.75rem; color:#888; margin-top:0.15rem;">
+                      <%= conv.sublabel %>
+                    </div>
                   </button>
                 <% end %>
               <% end %>
@@ -207,14 +293,17 @@ defmodule InmobiliariaWeb.ChatLive do
 
         <!-- PANEL DERECHO -->
         <div style="flex:1; display:flex; flex-direction:column;">
-          <%= if @selected_property do %>
+          <%= if @selected do %>
             <div style="background:white; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.08); display:flex; flex-direction:column; height:600px;">
 
               <div style="padding:1rem 1.25rem; border-bottom:1px solid #f0f0f0; display:flex; align-items:center; gap:0.75rem;">
                 <div style="width:40px; height:40px; background:#e0e7ff; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1.25rem;">🏠</div>
                 <div>
-                  <div style="font-weight:700; color:#1a1a2e;">Propiedad <%= @selected_property %></div>
-                  <div style="font-size:0.8rem; color:#888;">Propietario: <%= @selected_owner %></div>
+                  <div style="font-weight:700; color:#1a1a2e;"><%= @selected.label %></div>
+                  <div style="font-size:0.8rem; color:#888;"><%= @selected.sublabel %></div>
+                </div>
+                <div style="margin-left:auto; font-size:0.75rem; background:#dcfce7; color:#16a34a; padding:0.2rem 0.6rem; border-radius:999px; font-weight:600;">
+                  🔒 Privado
                 </div>
               </div>
 
@@ -228,11 +317,21 @@ defmodule InmobiliariaWeb.ChatLive do
                   </div>
                 <% else %>
                   <%= for msg <- @messages do %>
-                    <% is_mine = msg.client == @username %>
+                    <%
+                      # is_mine se basa en sender, no en client
+                      # así tanto el cliente como el owner ven sus
+                      # propios mensajes a la derecha correctamente
+                      is_mine = msg.sender == @username
+                    %>
                     <div style={"display:flex; justify-content:#{if is_mine, do: "flex-end", else: "flex-start"};"}>
-                      <div style={"max-width:70%; padding:0.75rem 1rem; border-radius:#{if is_mine, do: "12px 12px 0 12px", else: "12px 12px 12px 0"}; background:#{if is_mine, do: "#4f46e5", else: "#f3f4f6"}; color:#{if is_mine, do: "white", else: "#1a1a2e"};"}>
+                      <div style={"max-width:70%; padding:0.75rem 1rem;
+                        border-radius:#{if is_mine, do: "12px 12px 0 12px", else: "12px 12px 12px 0"};
+                        background:#{if is_mine, do: "#4f46e5", else: "#f3f4f6"};
+                        color:#{if is_mine, do: "white", else: "#1a1a2e"};"}>
                         <%= if !is_mine do %>
-                          <div style="font-size:0.75rem; font-weight:600; margin-bottom:0.25rem; color:#4f46e5;"><%= msg.client %></div>
+                          <div style="font-size:0.75rem; font-weight:600; margin-bottom:0.25rem; color:#4f46e5;">
+                            <%= msg.sender %>
+                          </div>
                         <% end %>
                         <div><%= msg.message %></div>
                         <div style="font-size:0.7rem; margin-top:0.25rem; opacity:0.7; text-align:right;">
@@ -265,7 +364,7 @@ defmodule InmobiliariaWeb.ChatLive do
           <% else %>
             <div style="background:white; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.08); padding:3rem; text-align:center; color:#999;">
               <div style="font-size:3rem; margin-bottom:1rem;">💬</div>
-              <p>Selecciona una propiedad para iniciar una conversación</p>
+              <p>Selecciona una conversación para ver los mensajes</p>
             </div>
           <% end %>
         </div>
@@ -275,15 +374,22 @@ defmodule InmobiliariaWeb.ChatLive do
     """
   end
 
-  defp load_messages(property_id) do
-    MessageManager.get_property_messages(property_id)
-    |> Enum.map(fn line ->
-      case String.split(line, ";") do
-        [date, prop_id, client, owner, message] ->
-          %{date: date, property_id: prop_id, client: client, owner: owner, message: message}
-        _ -> nil
-      end
-    end)
-    |> Enum.filter(&(&1 != nil))
+  # =====================================================================
+  # HELPERS
+  # =====================================================================
+
+  defp conv_key(property_id, client, owner) do
+    "#{property_id}__#{client}__#{owner}"
+  end
+
+  defp load_conv_messages(%{property_id: prop_id, client: client, owner: owner}) do
+    MessageManager.get_conversation_messages(prop_id, client, owner)
+  end
+
+  defp label_for(props_map, property_id) do
+    case Map.get(props_map, property_id) do
+      nil -> "Propiedad #{property_id}"
+      p   -> "#{p.type} - #{p.city}"
+    end
   end
 end

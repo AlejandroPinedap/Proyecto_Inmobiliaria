@@ -6,3 +6,6 @@
 2026-05-15 06:47:06.727000Z;cliente=ana;responsable=pedro;propiedad=prop003;operacion=compra;ubicacion=Bogota;precio=70000000;estado=completada
 2026-05-15 06:52:05.322000Z;cliente=ana;responsable=pedro;propiedad=prop004;operacion=compra;ubicacion=Pereira;precio=300000;estado=completada
 2026-05-15 06:57:28.766000Z;cliente=ana;responsable=arrendo;propiedad=prop006;operacion=arriendo;ubicacion=Armenia;precio=300000;estado=completada
+2026-05-15 16:42:35.322000Z;cliente=alejo2;responsable=arrendo;propiedad=prop005;operacion=arriendo;ubicacion=Armenia;precio=30000000;estado=completada
+2026-05-15 22:22:30.806000Z;cliente=ana;responsable=pedro;propiedad=prop10;operacion=compra;ubicacion=Medellin;precio=25000000;estado=completada
+2026-05-15 22:25:08.260000Z;cliente=alejo2;responsable=pedro;propiedad=prop011;operacion=compra;ubicacion=Bogota;precio=30000000;estado=completada
