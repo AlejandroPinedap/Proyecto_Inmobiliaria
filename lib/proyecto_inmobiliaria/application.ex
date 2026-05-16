@@ -9,6 +9,9 @@ defmodule Inmobiliaria.Application do
       # PubSub para chat en tiempo real
       {Phoenix.PubSub, name: Inmobiliaria.PubSub},
 
+      # Gestor de notificaciones en tiempo real
+      Inmobiliaria.NotificationManager,
+
       # Registry de propiedades
       {Registry, keys: :unique, name: Inmobiliaria.PropertyRegistry},
 

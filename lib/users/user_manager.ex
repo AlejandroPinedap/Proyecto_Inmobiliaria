@@ -1,5 +1,4 @@
 defmodule Inmobiliaria.Users.UserManager do
-
   # =========================
   # CONNECT
   # =========================
@@ -11,9 +10,7 @@ defmodule Inmobiliaria.Users.UserManager do
     case Enum.find(users, fn u ->
            u.username == username
          end) do
-
       nil ->
-
         user = %{
           username: username,
           password: password,
@@ -26,7 +23,6 @@ defmodule Inmobiliaria.Users.UserManager do
         {:ok, "Usuario registrado"}
 
       user ->
-
         if user.password == password do
           {:ok, "Login exitoso"}
         else
@@ -47,7 +43,6 @@ defmodule Inmobiliaria.Users.UserManager do
            u.username == username and
              u.password == password
          end) do
-
       nil ->
         {:error, "Credenciales inválidas"}
 
@@ -61,9 +56,7 @@ defmodule Inmobiliaria.Users.UserManager do
   # =========================
 
   def register(username, password, role) do
-
     cond do
-
       String.trim(username) == "" ->
         {:error, "El usuario es obligatorio"}
 
@@ -71,7 +64,6 @@ defmodule Inmobiliaria.Users.UserManager do
         {:error, "La contraseña es obligatoria"}
 
       true ->
-
         users =
           load_users()
 
@@ -81,11 +73,8 @@ defmodule Inmobiliaria.Users.UserManager do
           end)
 
         if exists? do
-
           {:error, "El usuario ya existe"}
-
         else
-
           user = %{
             username: username,
             password: password,
@@ -105,14 +94,11 @@ defmodule Inmobiliaria.Users.UserManager do
   # =========================
 
   def load_users do
-
     if File.exists?("data/users.dat") do
-
       "data/users.dat"
       |> File.read!()
       |> String.split("\n", trim: true)
       |> Enum.map(&parse_user/1)
-
     else
       []
     end
@@ -123,7 +109,6 @@ defmodule Inmobiliaria.Users.UserManager do
   # =========================
 
   def save_user(user) do
-
     # Crear carpeta si no existe
     File.mkdir_p!("data")
 
@@ -145,9 +130,10 @@ defmodule Inmobiliaria.Users.UserManager do
   # =========================
 
   defp parse_user(line) do
-
     [username, password, role, points] =
-      String.split(line, ";")
+      line
+      |> String.trim()
+      |> String.split(";")
 
     %{
       username: username,
@@ -162,20 +148,16 @@ defmodule Inmobiliaria.Users.UserManager do
   # =========================
 
   def add_points(username, points) do
-
     users =
       load_users()
 
     updated_users =
       Enum.map(users, fn user ->
-
         if user.username == username do
-
           %{
             user
             | points: user.points + points
           }
-
         else
           user
         end
@@ -189,7 +171,6 @@ defmodule Inmobiliaria.Users.UserManager do
   # =========================
 
   def rewrite_users(users) do
-
     content =
       users
       |> Enum.map(fn user ->
@@ -205,14 +186,12 @@ defmodule Inmobiliaria.Users.UserManager do
   # =========================
 
   def disconnect(username) do
-
     users =
       load_users()
 
     case Enum.find(users, fn u ->
            u.username == username
          end) do
-
       nil ->
         {:error, "Usuario no encontrado"}
 
@@ -226,14 +205,12 @@ defmodule Inmobiliaria.Users.UserManager do
   # =========================
 
   def get_score(username) do
-
     users =
       load_users()
 
     case Enum.find(users, fn u ->
            u.username == username
          end) do
-
       nil ->
         {:error, "Usuario no encontrado"}
 
@@ -247,7 +224,6 @@ defmodule Inmobiliaria.Users.UserManager do
   # =========================
 
   def ranking do
-
     load_users()
     |> Enum.sort_by(fn user ->
       -user.points

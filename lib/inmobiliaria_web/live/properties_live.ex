@@ -10,6 +10,12 @@ defmodule InmobiliariaWeb.PropertiesLive do
     role = Map.get(params, "role", "cliente")
     properties = load_for_role(username, role)
 
+    unread_count = Inmobiliaria.NotificationManager.get_count(username)
+
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(Inmobiliaria.PubSub, "notifications:#{username}")
+    end
+
     {:ok,
      assign(socket,
        username: username,
@@ -25,7 +31,8 @@ defmodule InmobiliariaWeb.PropertiesLive do
        show_form: false,
        edit_property: nil,
        form_error: nil,
-       form: empty_form(username)
+       form: empty_form(username),
+       unread_count: unread_count
      )}
   end
 
@@ -297,6 +304,10 @@ defmodule InmobiliariaWeb.PropertiesLive do
     Enum.filter(list, &(&1.price >= min && &1.price <= max))
   end
 
+  def handle_info({:new_notification, count}, socket) do
+    {:noreply, assign(socket, unread_count: count)}
+  end
+
   def render(assigns) do
     ~H"""
     <div style="min-height:100vh; background:#f0f2f5; font-family:sans-serif;">
@@ -305,7 +316,15 @@ defmodule InmobiliariaWeb.PropertiesLive do
         <span style="color:white; font-size:1.25rem; font-weight:700;">🏠 Inmobiliaria</span>
         <div style="display:flex; gap:1rem; align-items:center;">
           <a href={"/dashboard?user=#{@username}&role=#{@role}"} style="color:#a5b4fc; text-decoration:none; font-weight:500;">Dashboard</a>
-          <a href={"/chat?user=#{@username}&role=#{@role}"} style="color:#a5b4fc; text-decoration:none; font-weight:500;">Chat</a>
+          <a href={"/chat?user=#{@username}&role=#{@role}"}
+            style="color:#a5b4fc; text-decoration:none; font-weight:500; display:inline-flex; align-items:center; gap:0.3rem;">
+            Chat
+            <%= if @unread_count > 0 do %>
+              <span style="background:#dc2626; color:white; font-size:0.65rem; padding:0.1rem 0.4rem; border-radius:999px; font-weight:700; line-height:1.2;">
+                <%= @unread_count %>
+              </span>
+            <% end %>
+          </a>
           <a href="/" style="color:#f87171; text-decoration:none; font-weight:500;">Salir</a>
         </div>
       </nav>

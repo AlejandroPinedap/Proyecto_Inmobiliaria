@@ -9,46 +9,48 @@ defmodule InmobiliariaWeb.ChatLive do
   # =====================================================================
 
   def mount(params, _session, socket) do
-    username    = Map.get(params, "user", "invitado")
-    role        = Map.get(params, "role", "cliente")
+    username = Map.get(params, "user", "invitado")
+    role = Map.get(params, "role", "cliente")
     property_id = Map.get(params, "property", nil)
     owner_param = Map.get(params, "owner", nil)
 
     {conversations, properties_map} =
       case role do
         r when r in ["vendedor", "arrendador"] ->
-          pairs     = MessageManager.get_owner_conversations(username)
+          pairs = MessageManager.get_owner_conversations(username)
           all_props = PropertyManager.list_properties()
           props_map = Map.new(all_props, &{&1.id, &1})
 
           convs =
             Enum.map(pairs, fn {prop_id, client} ->
-              prop = Map.get(props_map, prop_id, %{id: prop_id, type: "?", city: "?", modality: "?"})
+              prop =
+                Map.get(props_map, prop_id, %{id: prop_id, type: "?", city: "?", modality: "?"})
+
               %{
-                key:         conv_key(prop_id, client, username),
+                key: conv_key(prop_id, client, username),
                 property_id: prop_id,
-                client:      client,
-                owner:       username,
-                label:       "#{prop.type} - #{prop.city}",
-                sublabel:    "Cliente: #{client}"
+                client: client,
+                owner: username,
+                label: "#{prop.type} - #{prop.city}",
+                sublabel: "Cliente: #{client}"
               }
             end)
 
           {convs, props_map}
 
         _ ->
-          props     = PropertyManager.available_properties()
+          props = PropertyManager.available_properties()
           props_map = Map.new(props, &{&1.id, &1})
 
           convs =
             Enum.map(props, fn p ->
               %{
-                key:         conv_key(p.id, username, p.owner),
+                key: conv_key(p.id, username, p.owner),
                 property_id: p.id,
-                client:      username,
-                owner:       p.owner,
-                label:       "#{p.type} - #{p.city}",
-                sublabel:    "Propietario: #{p.owner}"
+                client: username,
+                owner: p.owner,
+                label: "#{p.type} - #{p.city}",
+                sublabel: "Propietario: #{p.owner}"
               }
             end)
 
@@ -62,12 +64,12 @@ defmodule InmobiliariaWeb.ChatLive do
             c.property_id == property_id and c.owner == owner_param
           end) ||
             %{
-              key:         conv_key(property_id, username, owner_param),
+              key: conv_key(property_id, username, owner_param),
               property_id: property_id,
-              client:      username,
-              owner:       owner_param,
-              label:       label_for(properties_map, property_id),
-              sublabel:    "Propietario: #{owner_param}"
+              client: username,
+              owner: owner_param,
+              label: label_for(properties_map, property_id),
+              sublabel: "Propietario: #{owner_param}"
             }
 
         conversations != [] ->
@@ -86,23 +88,29 @@ defmodule InmobiliariaWeb.ChatLive do
 
     if connected?(socket) do
       Phoenix.PubSub.subscribe(Inmobiliaria.PubSub, "user:#{username}")
+      Phoenix.PubSub.subscribe(Inmobiliaria.PubSub, "notifications:#{username}")
+
       Enum.each(conversations, fn c ->
         Phoenix.PubSub.subscribe(Inmobiliaria.PubSub, "conv:#{c.key}")
       end)
     end
+
+    # Al entrar al chat reseteamos el contador del navbar
+    Inmobiliaria.NotificationManager.reset(username)
 
     messages =
       if selected, do: load_conv_messages(selected), else: []
 
     {:ok,
      assign(socket,
-       username:      username,
-       role:          role,
+       username: username,
+       role: role,
        conversations: conversations,
-       selected:      selected,
-       messages:      messages,
-       new_message:   "",
-       unread:        %{}
+       selected: selected,
+       messages: messages,
+       new_message: "",
+       unread: %{},
+       unread_count: 0
      )}
   end
 
@@ -119,7 +127,7 @@ defmodule InmobiliariaWeb.ChatLive do
       end
 
       messages = load_conv_messages(conv)
-      unread   = Map.delete(socket.assigns.unread, key)
+      unread = Map.delete(socket.assigns.unread, key)
 
       {:noreply, assign(socket, selected: conv, messages: messages, unread: unread)}
     else
@@ -133,7 +141,7 @@ defmodule InmobiliariaWeb.ChatLive do
 
   def handle_event("send_message", %{"message" => msg}, socket) do
     username = socket.assigns.username
-    conv     = socket.assigns.selected
+    conv = socket.assigns.selected
 
     if conv && String.trim(msg) != "" do
       text = String.trim(msg)
@@ -142,12 +150,12 @@ defmodule InmobiliariaWeb.ChatLive do
       MessageManager.send_message(conv.property_id, conv.client, conv.owner, username, text)
 
       message = %{
-        date:        DateTime.utc_now() |> DateTime.to_string(),
+        date: DateTime.utc_now() |> DateTime.to_string(),
         property_id: conv.property_id,
-        client:      conv.client,
-        owner:       conv.owner,
-        sender:      username,
-        message:     text
+        client: conv.client,
+        owner: conv.owner,
+        sender: username,
+        message: text
       }
 
       Phoenix.PubSub.broadcast(
@@ -161,6 +169,10 @@ defmodule InmobiliariaWeb.ChatLive do
         "user:#{conv.owner}",
         {:new_conversation, conv}
       )
+
+      # Notificar al destinatario (quien NO está escribiendo)
+      recipient = if username == conv.client, do: conv.owner, else: conv.client
+      Inmobiliaria.NotificationManager.increment(recipient)
 
       messages = socket.assigns.messages ++ [message]
 
@@ -176,6 +188,10 @@ defmodule InmobiliariaWeb.ChatLive do
   # =====================================================================
   # INFO (PubSub)
   # =====================================================================
+
+  def handle_info({:new_notification, count}, socket) do
+    {:noreply, assign(socket, unread_count: count)}
+  end
 
   def handle_info({:new_message, message}, socket) do
     key = conv_key(message.property_id, message.client, message.owner)
@@ -217,7 +233,7 @@ defmodule InmobiliariaWeb.ChatLive do
       end
 
       conversations = socket.assigns.conversations ++ [conv]
-      unread        = Map.put(socket.assigns.unread, conv.key, 1)
+      unread = Map.put(socket.assigns.unread, conv.key, 1)
 
       {:noreply, assign(socket, conversations: conversations, unread: unread)}
     end
@@ -236,6 +252,14 @@ defmodule InmobiliariaWeb.ChatLive do
         <div style="display:flex; gap:1rem; align-items:center;">
           <a href={"/dashboard?user=#{@username}&role=#{@role}"} style="color:#a5b4fc; text-decoration:none; font-weight:500;">Dashboard</a>
           <a href={"/properties?user=#{@username}&role=#{@role}"} style="color:#a5b4fc; text-decoration:none; font-weight:500;">Propiedades</a>
+          <span style="color:white; font-weight:600; display:inline-flex; align-items:center; gap:0.3rem;">
+            💬 Chat
+            <%= if @unread_count > 0 do %>
+              <span style="background:#dc2626; color:white; font-size:0.65rem; padding:0.1rem 0.4rem; border-radius:999px; font-weight:700; line-height:1.2;">
+                <%= @unread_count %>
+              </span>
+            <% end %>
+          </span>
           <a href="/" style="color:#f87171; text-decoration:none; font-weight:500;">Salir</a>
         </div>
       </nav>
@@ -389,7 +413,7 @@ defmodule InmobiliariaWeb.ChatLive do
   defp label_for(props_map, property_id) do
     case Map.get(props_map, property_id) do
       nil -> "Propiedad #{property_id}"
-      p   -> "#{p.type} - #{p.city}"
+      p -> "#{p.type} - #{p.city}"
     end
   end
 end

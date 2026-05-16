@@ -13,7 +13,7 @@ defmodule InmobiliariaWeb.DashboardLive do
     role = Map.get(params, "role", "cliente")
 
     properties = PropertyManager.list_properties()
-    all_users = UserManager.load_users()
+    _all_users = UserManager.load_users()
     full_ranking = UserManager.ranking()
 
     # Propiedades visibles según rol
@@ -86,6 +86,12 @@ defmodule InmobiliariaWeb.DashboardLive do
       |> Enum.group_by(& &1.type)
       |> Enum.map(fn {type, props} -> {type, length(props)} end)
 
+    unread_count = Inmobiliaria.NotificationManager.get_count(username)
+
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(Inmobiliaria.PubSub, "notifications:#{username}")
+    end
+
     {:ok,
      assign(socket,
        username: username,
@@ -101,7 +107,8 @@ defmodule InmobiliariaWeb.DashboardLive do
        history: history,
        properties: Enum.take(visible_properties, 5),
        # Tab activo: "dashboard" | "ranking" | "historial"
-       active_tab: "dashboard"
+       active_tab: "dashboard",
+       unread_count: unread_count
      )}
   end
 
@@ -111,6 +118,10 @@ defmodule InmobiliariaWeb.DashboardLive do
 
   def handle_event("switch_tab", %{"tab" => tab}, socket) do
     {:noreply, assign(socket, active_tab: tab)}
+  end
+
+  def handle_info({:new_notification, count}, socket) do
+    {:noreply, assign(socket, unread_count: count)}
   end
 
   # =====================================================================
@@ -126,7 +137,15 @@ defmodule InmobiliariaWeb.DashboardLive do
         <span style="color:white; font-size:1.25rem; font-weight:700;">🏠 Inmobiliaria</span>
         <div style="display:flex; gap:1rem; align-items:center;">
           <a href={"/properties?user=#{@username}&role=#{@role}"} style="color:#a5b4fc; text-decoration:none; font-weight:500;">Propiedades</a>
-          <a href={"/chat?user=#{@username}&role=#{@role}"} style="color:#a5b4fc; text-decoration:none; font-weight:500;">Chat</a>
+          <a href={"/chat?user=#{@username}&role=#{@role}"}
+            style="color:#a5b4fc; text-decoration:none; font-weight:500; display:inline-flex; align-items:center; gap:0.3rem;">
+            Chat
+            <%= if @unread_count > 0 do %>
+              <span style="background:#dc2626; color:white; font-size:0.65rem; padding:0.1rem 0.4rem; border-radius:999px; font-weight:700; line-height:1.2;">
+                <%= @unread_count %>
+              </span>
+            <% end %>
+          </a>
           <a href="/" style="color:#f87171; text-decoration:none; font-weight:500;">Salir</a>
         </div>
       </nav>
