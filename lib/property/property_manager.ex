@@ -58,6 +58,19 @@ defmodule Inmobiliaria.Property.PropertyManager do
   end
 
   # =========================
+# ELIMINAR PROPIEDAD
+# =========================
+
+def delete_property(id) do
+  properties =
+    load_properties()
+    |> Enum.reject(fn p -> p.id == id end)
+
+  rewrite_properties(properties)
+  {:ok, "Propiedad eliminada"}
+end
+
+  # =========================
   # REESCRIBIR TODAS
   # =========================
 

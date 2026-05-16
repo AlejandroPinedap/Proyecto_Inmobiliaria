@@ -78,6 +78,23 @@ defmodule InmobiliariaWeb.PropertiesLive do
     {:noreply, assign(socket, edit_property: nil, form_error: nil)}
   end
 
+  def handle_event("delete_property", %{"id" => id}, socket) do
+    properties = socket.assigns.properties
+
+    case Enum.find(properties, &(&1.id == id)) do
+      nil ->
+        {:noreply, socket}
+
+      property when property.status != :available ->
+        {:noreply, assign(socket, form_error: "Solo puedes eliminar propiedades disponibles")}
+
+      _property ->
+        PropertyManager.delete_property(id)
+        properties = load_for_role(socket.assigns.username, socket.assigns.role)
+        {:noreply, assign(socket, properties: properties, filtered: properties, form_error: nil)}
+    end
+  end
+
   def handle_event("update_property", params, socket) do
     username = socket.assigns.username
     role = socket.assigns.role
@@ -115,34 +132,44 @@ defmodule InmobiliariaWeb.PropertiesLive do
         _ -> params["modality"]
       end
 
-    property = %{
-      id: params["prop_id"],
-      type: params["type"],
-      modality: modality,
-      city: params["city"],
-      price: String.to_integer(params["price"] || "0"),
-      rooms: String.to_integer(params["rooms"] || "0"),
-      area: String.to_integer(params["area"] || "0"),
-      owner: username,
-      status: :available,
-      buyer: ""
-    }
+    city = params["city"]
 
-    case PropertyManager.create_property(property) do
-      {:ok, _} ->
-        properties = load_for_role(username, role)
+    # Validar ciudad
+    if !Inmobiliaria.Location.valida?(city) do
+      ubicaciones = Inmobiliaria.Location.cargar_ubicaciones() |> Enum.join(", ")
 
-        {:noreply,
-         assign(socket,
-           properties: properties,
-           filtered: properties,
-           show_form: false,
-           form_error: nil,
-           form: empty_form(username)
-         )}
+      {:noreply,
+       assign(socket, form_error: "Ciudad no válida. Ciudades permitidas: #{ubicaciones}")}
+    else
+      property = %{
+        id: params["prop_id"],
+        type: params["type"],
+        modality: modality,
+        city: city,
+        price: String.to_integer(params["price"] || "0"),
+        rooms: String.to_integer(params["rooms"] || "0"),
+        area: String.to_integer(params["area"] || "0"),
+        owner: username,
+        status: :available,
+        buyer: ""
+      }
 
-      {:error, msg} ->
-        {:noreply, assign(socket, form_error: msg)}
+      case PropertyManager.create_property(property) do
+        {:ok, _} ->
+          properties = load_for_role(username, role)
+
+          {:noreply,
+           assign(socket,
+             properties: properties,
+             filtered: properties,
+             show_form: false,
+             form_error: nil,
+             form: empty_form(username)
+           )}
+
+        {:error, msg} ->
+          {:noreply, assign(socket, form_error: msg)}
+      end
     end
   end
 
@@ -318,6 +345,8 @@ defmodule InmobiliariaWeb.PropertiesLive do
           </button>
         </form>
 
+
+
         <!-- FORMULARIO CREAR -->
         <%= if @show_form do %>
           <div style="background:white; padding:1.5rem; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.08); margin-bottom:1.5rem; border-left:4px solid #4f46e5;">
@@ -428,6 +457,8 @@ defmodule InmobiliariaWeb.PropertiesLive do
           </div>
         <% end %>
 
+
+
         <!-- ERROR GLOBAL -->
         <%= if @form_error && !@show_form && !@edit_property do %>
           <div style="background:#fee2e2; color:#dc2626; padding:0.75rem; border-radius:8px; margin-bottom:1rem;">
@@ -493,9 +524,15 @@ defmodule InmobiliariaWeb.PropertiesLive do
                         <% end %>
                       <% end %>
                       <button phx-click="edit_property" phx-value-id={p.id}
-                        style="padding:0.3rem 0.75rem; background:#e0e7ff; color:#4f46e5; border:none; border-radius:6px; font-size:0.8rem; cursor:pointer;">
-                        ✏️ Editar
-                      </button>
+    style="padding:0.3rem 0.75rem; background:#e0e7ff; color:#4f46e5; border:none; border-radius:6px; font-size:0.8rem; cursor:pointer;">
+    ✏️ Editar
+    </button>
+    <%= if p.status == :available do %>
+    <button phx-click="delete_property" phx-value-id={p.id}
+    style="padding:0.3rem 0.75rem; background:#fee2e2; color:#dc2626; border:none; border-radius:6px; font-size:0.8rem; cursor:pointer;">
+    🗑️ Eliminar
+    </button>
+    <% end %>
                     </div>
                   <% end %>
 
