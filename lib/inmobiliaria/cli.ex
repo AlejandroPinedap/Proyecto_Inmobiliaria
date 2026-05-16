@@ -12,7 +12,12 @@ defmodule Inmobiliaria.CLI do
   # =========================
 
   def start do
-    IO.puts("=== INMOBILIARIA ===")
+
+    IO.puts("""
+    ==========================
+        SISTEMA INMOBILIARIA
+    ==========================
+    """)
 
     menu()
   end
@@ -25,37 +30,44 @@ defmodule Inmobiliaria.CLI do
 
     IO.puts("""
 
-    ====== INMOBILIARIA ======
+    ========= MENÚ =========
 
-    1. Connect
-    2. Logout
+    1. Login
+    2. Registrar usuario
+    3. Logout
 
-    3. Publicar propiedad
-    4. Listar propiedades
+    4. Publicar propiedad
+    5. Listar propiedades
+    6. Ver disponibles
 
-    5. Comprar propiedad
-    6. Arrendar propiedad
+    7. Comprar propiedad
+    8. Arrendar propiedad
 
-    7. Enviar mensaje
-    8. Ver mensajes
+    9. Enviar mensaje
+    10. Ver mensajes
 
-    9. Ver historial
-    10. Ver ranking
+    11. Ver historial
+    12. Ver ranking
 
-    11. Buscar por tipo
-    12. Buscar por ciudad
-    13. Buscar por precio
+    13. Buscar por tipo
+    14. Buscar por ciudad
+    15. Buscar por precio
+    16. Buscar por modalidad
 
-    14. Simular concurrencia
-    15. Salir
+    17. Ver sesión
+    18. Simular concurrencia
+
+    19. Salir
+
+    ========================
 
     """)
 
-    opcion =
-      IO.gets("Seleccione: ")
+    option =
+      IO.gets("Seleccione una opción: ")
       |> String.trim()
 
-    case opcion do
+    case option do
 
       # =========================
       # LOGIN
@@ -66,10 +78,18 @@ defmodule Inmobiliaria.CLI do
         menu()
 
       # =========================
-      # LOGOUT
+      # REGISTER
       # =========================
 
       "2" ->
+        register_user()
+        menu()
+
+      # =========================
+      # LOGOUT
+      # =========================
+
+      "3" ->
         SessionManager.logout()
         IO.puts("Sesión cerrada")
         menu()
@@ -78,7 +98,7 @@ defmodule Inmobiliaria.CLI do
       # PUBLICAR
       # =========================
 
-      "3" ->
+      "4" ->
         publish_property()
         menu()
 
@@ -86,15 +106,23 @@ defmodule Inmobiliaria.CLI do
       # LISTAR
       # =========================
 
-      "4" ->
+      "5" ->
         list_properties()
+        menu()
+
+      # =========================
+      # DISPONIBLES
+      # =========================
+
+      "6" ->
+        available_properties()
         menu()
 
       # =========================
       # COMPRAR
       # =========================
 
-      "5" ->
+      "7" ->
         buy_property()
         menu()
 
@@ -102,7 +130,7 @@ defmodule Inmobiliaria.CLI do
       # ARRENDAR
       # =========================
 
-      "6" ->
+      "8" ->
         rent_property()
         menu()
 
@@ -110,11 +138,11 @@ defmodule Inmobiliaria.CLI do
       # MENSAJES
       # =========================
 
-      "7" ->
+      "9" ->
         send_message_cli()
         menu()
 
-      "8" ->
+      "10" ->
         view_messages()
         menu()
 
@@ -122,7 +150,7 @@ defmodule Inmobiliaria.CLI do
       # HISTORIAL
       # =========================
 
-      "9" ->
+      "11" ->
         show_history()
         menu()
 
@@ -130,7 +158,7 @@ defmodule Inmobiliaria.CLI do
       # RANKING
       # =========================
 
-      "10" ->
+      "12" ->
         show_ranking()
         menu()
 
@@ -138,23 +166,35 @@ defmodule Inmobiliaria.CLI do
       # BÚSQUEDAS
       # =========================
 
-      "11" ->
+      "13" ->
         search_type()
         menu()
 
-      "12" ->
+      "14" ->
         search_city()
         menu()
 
-      "13" ->
+      "15" ->
         search_price()
+        menu()
+
+      "16" ->
+        search_modality()
+        menu()
+
+      # =========================
+      # SESIÓN
+      # =========================
+
+      "17" ->
+        show_session()
         menu()
 
       # =========================
       # CONCURRENCIA
       # =========================
 
-      "14" ->
+      "18" ->
         simulate_buy()
         menu()
 
@@ -162,8 +202,8 @@ defmodule Inmobiliaria.CLI do
       # SALIR
       # =========================
 
-      "15" ->
-        IO.puts("Saliendo...")
+      "19" ->
+        IO.puts("Saliendo del sistema...")
 
       _ ->
         IO.puts("Opción inválida")
@@ -172,7 +212,7 @@ defmodule Inmobiliaria.CLI do
   end
 
   # =========================
-  # CONNECT
+  # LOGIN
   # =========================
 
   def connect do
@@ -183,10 +223,6 @@ defmodule Inmobiliaria.CLI do
 
     password =
       IO.gets("Password: ")
-      |> String.trim()
-
-    role =
-      IO.gets("Rol: ")
       |> String.trim()
 
     case UserManager.login(username, password) do
@@ -200,22 +236,42 @@ defmodule Inmobiliaria.CLI do
 
         IO.puts("Login exitoso")
 
-      {:error, _} ->
+      {:error, message} ->
 
-        UserManager.register(
-          username,
-          password,
-          role
-        )
-
-        SessionManager.login(username, role)
-
-        IO.puts("Usuario registrado")
+        IO.puts(message)
     end
   end
 
   # =========================
-  # PUBLICAR
+  # REGISTER
+  # =========================
+
+  def register_user do
+
+    username =
+      IO.gets("Usuario: ")
+      |> String.trim()
+
+    password =
+      IO.gets("Password: ")
+      |> String.trim()
+
+    role =
+      IO.gets("Rol (cliente/vendedor/arrendador): ")
+      |> String.trim()
+
+    case UserManager.register(username, password, role) do
+
+      {:ok, _user} ->
+        IO.puts("Usuario registrado")
+
+      {:error, message} ->
+        IO.puts(message)
+    end
+  end
+
+  # =========================
+  # PUBLICAR PROPIEDAD
   # =========================
 
   def publish_property do
@@ -273,7 +329,7 @@ defmodule Inmobiliaria.CLI do
   end
 
   # =========================
-  # LISTAR
+  # LISTAR PROPIEDADES
   # =========================
 
   def list_properties do
@@ -281,9 +337,19 @@ defmodule Inmobiliaria.CLI do
     properties =
       PropertyManager.list_properties()
 
-    Enum.each(properties, fn p ->
-      IO.puts(p)
-    end)
+    PropertyManager.show_properties(properties)
+  end
+
+  # =========================
+  # VER DISPONIBLES
+  # =========================
+
+  def available_properties do
+
+    properties =
+      PropertyManager.available_properties()
+
+    PropertyManager.show_properties(properties)
   end
 
   # =========================
@@ -357,73 +423,43 @@ defmodule Inmobiliaria.CLI do
   end
 
   # =========================
-  # SIMULAR COMPRA
-  # =========================
-
-  def simulate_buy do
-
-    PropertyManager.create_property(%{
-      id: "prop_test",
-      type: "casa",
-      modality: "venta",
-      city: "Armenia",
-      price: 100_000,
-      owner: "Carlos",
-      status: :available
-    })
-
-    task1 =
-
-      Task.async(fn ->
-        Property.buy("prop_test", "Ana")
-      end)
-
-    task2 =
-
-      Task.async(fn ->
-        Property.buy("prop_test", "Juan")
-      end)
-
-    IO.inspect(Task.await(task1))
-    IO.inspect(Task.await(task2))
-
-    IO.inspect(
-      Property.get_info("prop_test")
-    )
-  end
-
-  # =========================
   # ENVIAR MENSAJE
   # =========================
 
   def send_message_cli do
 
-    property_id =
-      IO.gets("ID propiedad: ")
-      |> String.trim()
+    user =
+      SessionManager.current_user()
 
-    client =
-      IO.gets("Cliente: ")
-      |> String.trim()
+    if user == %{} do
 
-    owner =
-      IO.gets("Responsable: ")
-      |> String.trim()
+      IO.puts("Debe iniciar sesión")
 
-    message =
-      IO.gets("Mensaje: ")
-      |> String.trim()
+    else
 
-    response =
+      property_id =
+        IO.gets("ID propiedad: ")
+        |> String.trim()
 
-      MessageManager.send_message(
-        property_id,
-        client,
-        owner,
-        message
-      )
+      owner =
+        IO.gets("Responsable: ")
+        |> String.trim()
 
-    IO.inspect(response)
+      message =
+        IO.gets("Mensaje: ")
+        |> String.trim()
+
+      response =
+
+        MessageManager.send_message(
+          property_id,
+          user.username,
+          owner,
+          message
+        )
+
+      IO.inspect(response)
+    end
   end
 
   # =========================
@@ -432,18 +468,22 @@ defmodule Inmobiliaria.CLI do
 
   def view_messages do
 
-    owner =
-      IO.gets("Responsable: ")
-      |> String.trim()
+    user =
+      SessionManager.current_user()
 
-    messages =
-      MessageManager.get_owner_messages(owner)
+    if user == %{} do
 
-    IO.puts("\n=== MENSAJES ===\n")
+      IO.puts("Debe iniciar sesión")
 
-    Enum.each(messages, fn msg ->
-      IO.puts(msg)
-    end)
+    else
+
+      messages =
+        MessageManager.get_owner_messages(
+          user.username
+        )
+
+      MessageManager.show_messages(messages)
+    end
   end
 
   # =========================
@@ -451,8 +491,6 @@ defmodule Inmobiliaria.CLI do
   # =========================
 
   def show_history do
-
-    IO.puts("\n=== HISTORIAL ===\n")
 
     OperationLogger.show_history()
   end
@@ -528,5 +566,95 @@ defmodule Inmobiliaria.CLI do
       PropertyManager.search_by_price(min, max)
 
     PropertyManager.show_properties(results)
+  end
+
+  # =========================
+  # BUSCAR MODALIDAD
+  # =========================
+
+  def search_modality do
+
+    modality =
+      IO.gets("Modalidad: ")
+      |> String.trim()
+
+    results =
+      PropertyManager.search_by_modality(modality)
+
+    PropertyManager.show_properties(results)
+  end
+
+  # =========================
+  # VER SESIÓN
+  # =========================
+
+  def show_session do
+
+    user =
+      SessionManager.current_user()
+
+    if user == %{} do
+
+      IO.puts("No hay sesión activa")
+
+    else
+
+      IO.puts("""
+      ===== SESIÓN =====
+
+      Usuario: #{user.username}
+      Rol: #{user.role}
+
+      ==================
+      """)
+    end
+  end
+
+  # =========================
+  # SIMULAR CONCURRENCIA
+  # =========================
+
+  def simulate_buy do
+
+    properties =
+      PropertyManager.list_properties()
+
+    exists? =
+
+      Enum.any?(properties, fn p ->
+        p.id == "prop_test"
+      end)
+
+    unless exists? do
+
+      PropertyManager.create_property(%{
+        id: "prop_test",
+        type: "casa",
+        modality: "venta",
+        city: "Armenia",
+        price: 100_000,
+        owner: "Carlos",
+        status: :available
+      })
+    end
+
+    task1 =
+
+      Task.async(fn ->
+        Property.buy("prop_test", "Ana")
+      end)
+
+    task2 =
+
+      Task.async(fn ->
+        Property.buy("prop_test", "Juan")
+      end)
+
+    IO.inspect(Task.await(task1))
+    IO.inspect(Task.await(task2))
+
+    IO.inspect(
+      Property.get_info("prop_test")
+    )
   end
 end

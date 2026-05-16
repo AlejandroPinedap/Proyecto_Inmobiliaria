@@ -265,8 +265,8 @@ defmodule Inmobiliaria.Property.Property do
       end)
 
     File.write!(
-      "data/properties.dat",
-      content
-    )
+  "data/properties.dat",
+  content <> "\n"
+)
   end
 end
