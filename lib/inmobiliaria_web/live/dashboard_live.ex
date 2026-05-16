@@ -10,17 +10,18 @@ defmodule InmobiliariaWeb.DashboardLive do
 
   def mount(params, _session, socket) do
     username = Map.get(params, "user", "invitado")
-    role     = Map.get(params, "role", "cliente")
+    role = Map.get(params, "role", "cliente")
 
-    properties      = PropertyManager.list_properties()
-    all_users       = UserManager.load_users()
-    full_ranking    = UserManager.ranking()
+    properties = PropertyManager.list_properties()
+    all_users = UserManager.load_users()
+    full_ranking = UserManager.ranking()
 
     # Propiedades visibles según rol
     visible_properties =
       case role do
         r when r in ["vendedor", "arrendador"] ->
           Enum.filter(properties, &(&1.owner == username))
+
         _ ->
           Enum.filter(properties, &(&1.status == :available))
       end
@@ -30,26 +31,29 @@ defmodule InmobiliariaWeb.DashboardLive do
       case role do
         r when r in ["vendedor", "arrendador"] ->
           %{
-            total:       length(visible_properties),
-            available:   Enum.count(visible_properties, &(&1.status == :available)),
-            sold:        Enum.count(visible_properties, &(&1.status == :sold)),
-            rented:      Enum.count(visible_properties, &(&1.status == :rented)),
-            total_users: length(all_users)
+            total: length(visible_properties),
+            available: Enum.count(visible_properties, &(&1.status == :available)),
+            sold: Enum.count(visible_properties, &(&1.status == :sold)),
+            rented: Enum.count(visible_properties, &(&1.status == :rented)),
+            total_users: nil
           }
+
         _ ->
+          compradas = PropertyManager.search_by_buyer(username)
+
           %{
-            total:       length(visible_properties),
-            available:   length(visible_properties),
-            sold:        nil,
-            rented:      nil,
+            total: length(visible_properties),
+            available: length(visible_properties),
+            sold: length(compradas),
+            rented: nil,
             total_users: nil
           }
       end
 
     # Ranking: top 5 + posición del usuario actual
-    top_ranking   = Enum.take(full_ranking, 5)
+    top_ranking = Enum.take(full_ranking, 5)
     user_position = Enum.find_index(full_ranking, &(&1.username == username))
-    user_rank     = if user_position != nil, do: user_position + 1, else: nil
+    user_rank = if user_position != nil, do: user_position + 1, else: nil
     user_in_top5? = user_rank != nil and user_rank <= 5
 
     current_user_data = Enum.find(full_ranking, &(&1.username == username))
@@ -84,20 +88,20 @@ defmodule InmobiliariaWeb.DashboardLive do
 
     {:ok,
      assign(socket,
-       username:          username,
-       role:              role,
-       stats:             stats,
-       by_city:           by_city,
-       by_type:           by_type,
-       top_ranking:       top_ranking,
-       full_ranking:      full_ranking,
-       user_rank:         user_rank,
-       user_in_top5?:     user_in_top5?,
+       username: username,
+       role: role,
+       stats: stats,
+       by_city: by_city,
+       by_type: by_type,
+       top_ranking: top_ranking,
+       full_ranking: full_ranking,
+       user_rank: user_rank,
+       user_in_top5?: user_in_top5?,
        current_user_data: current_user_data,
-       history:           history,
-       properties:        Enum.take(visible_properties, 5),
+       history: history,
+       properties: Enum.take(visible_properties, 5),
        # Tab activo: "dashboard" | "ranking" | "historial"
-       active_tab:        "dashboard"
+       active_tab: "dashboard"
      )}
   end
 
@@ -195,28 +199,46 @@ defmodule InmobiliariaWeb.DashboardLive do
     ~H"""
     <!-- Tarjetas de estadísticas -->
     <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:1rem; margin-bottom:2rem;">
+
       <div style="background:white; padding:1.5rem; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.08); border-left:4px solid #4f46e5;">
         <div style="font-size:2rem; font-weight:700; color:#4f46e5;"><%= @stats.total %></div>
         <div style="color:#666; font-size:0.875rem; margin-top:0.25rem;">
-          <%= if @role in ["vendedor", "arrendador"], do: "Mis Propiedades", else: "Disponibles" %>
+          <%= if @role in ["vendedor", "arrendador"], do: "Mis Propiedades", else: "Disponibles en el mercado" %>
         </div>
       </div>
-      <div style="background:white; padding:1.5rem; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.08); border-left:4px solid #16a34a;">
-        <div style="font-size:2rem; font-weight:700; color:#16a34a;"><%= @stats.available %></div>
-        <div style="color:#666; font-size:0.875rem; margin-top:0.25rem;">Disponibles</div>
-      </div>
-      <%= if @stats.sold != nil do %>
-        <div style="background:white; padding:1.5rem; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.08); border-left:4px solid #dc2626;">
-          <div style="font-size:2rem; font-weight:700; color:#dc2626;"><%= @stats.sold %></div>
-          <div style="color:#666; font-size:0.875rem; margin-top:0.25rem;">Vendidas</div>
+
+      <%= if @role in ["vendedor", "arrendador"] do %>
+        <div style="background:white; padding:1.5rem; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.08); border-left:4px solid #16a34a;">
+          <div style="font-size:2rem; font-weight:700; color:#16a34a;"><%= @stats.available %></div>
+          <div style="color:#666; font-size:0.875rem; margin-top:0.25rem;">Disponibles</div>
         </div>
+        <%= if @stats.sold != nil do %>
+          <div style="background:white; padding:1.5rem; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.08); border-left:4px solid #dc2626;">
+            <div style="font-size:2rem; font-weight:700; color:#dc2626;"><%= @stats.sold %></div>
+            <div style="color:#666; font-size:0.875rem; margin-top:0.25rem;">Vendidas</div>
+          </div>
+        <% end %>
+        <%= if @stats.rented != nil do %>
+          <div style="background:white; padding:1.5rem; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.08); border-left:4px solid #f59e0b;">
+            <div style="font-size:2rem; font-weight:700; color:#f59e0b;"><%= @stats.rented %></div>
+            <div style="color:#666; font-size:0.875rem; margin-top:0.25rem;">Arrendadas</div>
+          </div>
+        <% end %>
+        <%= if @stats.total_users != nil do %>
+          <div style="background:white; padding:1.5rem; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.08); border-left:4px solid #0891b2;">
+            <div style="font-size:2rem; font-weight:700; color:#0891b2;"><%= @stats.total_users %></div>
+            <div style="color:#666; font-size:0.875rem; margin-top:0.25rem;">Usuarios</div>
+          </div>
+        <% end %>
+      <% else %>
+        <%= if @stats.sold != nil and @stats.sold > 0 do %>
+          <div style="background:white; padding:1.5rem; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.08); border-left:4px solid #7c3aed;">
+            <div style="font-size:2rem; font-weight:700; color:#7c3aed;"><%= @stats.sold %></div>
+            <div style="color:#666; font-size:0.875rem; margin-top:0.25rem;">Mis compras y arriendos</div>
+          </div>
+        <% end %>
       <% end %>
-      <%= if @stats.rented != nil do %>
-        <div style="background:white; padding:1.5rem; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.08); border-left:4px solid #f59e0b;">
-          <div style="font-size:2rem; font-weight:700; color:#f59e0b;"><%= @stats.rented %></div>
-          <div style="color:#666; font-size:0.875rem; margin-top:0.25rem;">Arrendadas</div>
-        </div>
-      <% end %>
+
     </div>
 
     <!-- Gráficos + Propiedades -->
@@ -300,13 +322,11 @@ defmodule InmobiliariaWeb.DashboardLive do
               ➕ Publicar Propiedad
             </a>
           <% end %>
-          <button
-            phx-click="switch_tab" phx-value-tab="ranking"
+          <button phx-click="switch_tab" phx-value-tab="ranking"
             style="padding:0.75rem 1rem; background:#f3e8ff; color:#7c3aed; border-radius:8px; font-weight:500; border:none; cursor:pointer; text-align:left;">
             🏆 Ver Ranking Completo
           </button>
-          <button
-            phx-click="switch_tab" phx-value-tab="historial"
+          <button phx-click="switch_tab" phx-value-tab="historial"
             style="padding:0.75rem 1rem; background:#e0f2fe; color:#0891b2; border-radius:8px; font-weight:500; border:none; cursor:pointer; text-align:left;">
             📋 Ver Historial
           </button>
@@ -554,19 +574,19 @@ defmodule InmobiliariaWeb.DashboardLive do
   # =====================================================================
 
   defp status_color(:available), do: "#16a34a"
-  defp status_color(:sold),      do: "#dc2626"
-  defp status_color(:rented),    do: "#f59e0b"
-  defp status_color(_),          do: "#888"
+  defp status_color(:sold), do: "#dc2626"
+  defp status_color(:rented), do: "#f59e0b"
+  defp status_color(_), do: "#888"
 
   defp status_label(:available), do: "Disponible"
-  defp status_label(:sold),      do: "Vendida"
-  defp status_label(:rented),    do: "Arrendada"
-  defp status_label(other),      do: to_string(other)
+  defp status_label(:sold), do: "Vendida"
+  defp status_label(:rented), do: "Arrendada"
+  defp status_label(other), do: to_string(other)
 
-  defp status_sort_order(:sold),      do: 0
-  defp status_sort_order(:rented),    do: 1
+  defp status_sort_order(:sold), do: 0
+  defp status_sort_order(:rented), do: 1
   defp status_sort_order(:available), do: 2
-  defp status_sort_order(_),          do: 3
+  defp status_sort_order(_), do: 3
 
   defp medal(1), do: "🥇"
   defp medal(2), do: "🥈"
@@ -583,12 +603,12 @@ defmodule InmobiliariaWeb.DashboardLive do
   defp rank_bar_color(3), do: "#b45309"
   defp rank_bar_color(_), do: "#4f46e5"
 
-  defp property_icon("Casa"),        do: "🏠"
+  defp property_icon("Casa"), do: "🏠"
   defp property_icon("Apartamento"), do: "🏢"
-  defp property_icon("Local"),       do: "🏪"
-  defp property_icon("Bodega"),      do: "🏭"
-  defp property_icon("Terreno"),     do: "🌳"
-  defp property_icon(_),             do: "🏗️"
+  defp property_icon("Local"), do: "🏪"
+  defp property_icon("Bodega"), do: "🏭"
+  defp property_icon("Terreno"), do: "🌳"
+  defp property_icon(_), do: "🏗️"
 
   defp format_number(price) when is_integer(price) do
     price
@@ -602,9 +622,10 @@ defmodule InmobiliariaWeb.DashboardLive do
     |> Enum.reverse()
     |> Enum.join("")
   end
+
   defp format_number(price), do: to_string(price)
 
-  defp role_color("vendedor"),   do: "#f59e0b"
+  defp role_color("vendedor"), do: "#f59e0b"
   defp role_color("arrendador"), do: "#0891b2"
-  defp role_color(_),            do: "#16a34a"
+  defp role_color(_), do: "#16a34a"
 end
