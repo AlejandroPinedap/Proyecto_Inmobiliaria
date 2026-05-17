@@ -1,5 +1,4 @@
 defmodule Inmobiliaria.CLI do
-
   alias Inmobiliaria.Users.UserManager
   alias Inmobiliaria.Property.PropertyManager
   alias Inmobiliaria.Property.Property
@@ -22,7 +21,6 @@ defmodule Inmobiliaria.CLI do
   # =========================
 
   def menu do
-
     IO.puts("""
 
     ====== INMOBILIARIA ======
@@ -56,7 +54,6 @@ defmodule Inmobiliaria.CLI do
       |> String.trim()
 
     case opcion do
-
       # =========================
       # LOGIN
       # =========================
@@ -176,7 +173,6 @@ defmodule Inmobiliaria.CLI do
   # =========================
 
   def connect do
-
     username =
       IO.gets("Usuario: ")
       |> String.trim()
@@ -190,9 +186,7 @@ defmodule Inmobiliaria.CLI do
       |> String.trim()
 
     case UserManager.login(username, password) do
-
       {:ok, user} ->
-
         SessionManager.login(
           user.username,
           user.role
@@ -201,7 +195,6 @@ defmodule Inmobiliaria.CLI do
         IO.puts("Login exitoso")
 
       {:error, _} ->
-
         UserManager.register(
           username,
           password,
@@ -219,22 +212,17 @@ defmodule Inmobiliaria.CLI do
   # =========================
 
   def publish_property do
-
     user =
       SessionManager.current_user()
 
     cond do
-
       user == %{} ->
-
         IO.puts("Debe iniciar sesión")
 
       user.role not in ["vendedor", "arrendador"] ->
-
         IO.puts("No tiene permisos")
 
       true ->
-
         id =
           IO.gets("ID: ")
           |> String.trim()
@@ -257,7 +245,6 @@ defmodule Inmobiliaria.CLI do
           |> String.to_integer()
 
         {:ok, _pid} =
-
           PropertyManager.create_property(%{
             id: id,
             type: type,
@@ -277,7 +264,6 @@ defmodule Inmobiliaria.CLI do
   # =========================
 
   def list_properties do
-
     properties =
       PropertyManager.list_properties()
 
@@ -291,22 +277,17 @@ defmodule Inmobiliaria.CLI do
   # =========================
 
   def buy_property do
-
     user =
       SessionManager.current_user()
 
     cond do
-
       user == %{} ->
-
         IO.puts("Debe iniciar sesión")
 
       user.role != "cliente" ->
-
         IO.puts("Solo clientes pueden comprar")
 
       true ->
-
         property_id =
           IO.gets("ID propiedad: ")
           |> String.trim()
@@ -326,22 +307,17 @@ defmodule Inmobiliaria.CLI do
   # =========================
 
   def rent_property do
-
     user =
       SessionManager.current_user()
 
     cond do
-
       user == %{} ->
-
         IO.puts("Debe iniciar sesión")
 
       user.role != "cliente" ->
-
         IO.puts("Solo clientes pueden arrendar")
 
       true ->
-
         property_id =
           IO.gets("ID propiedad: ")
           |> String.trim()
@@ -361,7 +337,6 @@ defmodule Inmobiliaria.CLI do
   # =========================
 
   def simulate_buy do
-
     PropertyManager.create_property(%{
       id: "prop_test",
       type: "casa",
@@ -373,13 +348,11 @@ defmodule Inmobiliaria.CLI do
     })
 
     task1 =
-
       Task.async(fn ->
         Property.buy("prop_test", "Ana")
       end)
 
     task2 =
-
       Task.async(fn ->
         Property.buy("prop_test", "Juan")
       end)
@@ -387,9 +360,7 @@ defmodule Inmobiliaria.CLI do
     IO.inspect(Task.await(task1))
     IO.inspect(Task.await(task2))
 
-    IO.inspect(
-      Property.get_info("prop_test")
-    )
+    IO.inspect(Property.get_info("prop_test"))
   end
 
   # =========================
@@ -397,7 +368,6 @@ defmodule Inmobiliaria.CLI do
   # =========================
 
   def send_message_cli do
-
     property_id =
       IO.gets("ID propiedad: ")
       |> String.trim()
@@ -415,13 +385,7 @@ defmodule Inmobiliaria.CLI do
       |> String.trim()
 
     response =
-
-      MessageManager.send_message(
-        property_id,
-        client,
-        owner,
-        message
-      )
+      MessageManager.send_message(property_id, client, owner, client, message)
 
     IO.inspect(response)
   end
@@ -431,7 +395,6 @@ defmodule Inmobiliaria.CLI do
   # =========================
 
   def view_messages do
-
     owner =
       IO.gets("Responsable: ")
       |> String.trim()
@@ -451,7 +414,6 @@ defmodule Inmobiliaria.CLI do
   # =========================
 
   def show_history do
-
     IO.puts("\n=== HISTORIAL ===\n")
 
     OperationLogger.show_history()
@@ -462,17 +424,13 @@ defmodule Inmobiliaria.CLI do
   # =========================
 
   def show_ranking do
-
     ranking =
       UserManager.ranking()
 
     IO.puts("\n=== RANKING ===\n")
 
     Enum.each(ranking, fn user ->
-
-      IO.puts(
-        "#{user.username} | #{user.role} | #{user.points} puntos"
-      )
+      IO.puts("#{user.username} | #{user.role} | #{user.points} puntos")
     end)
   end
 
@@ -481,7 +439,6 @@ defmodule Inmobiliaria.CLI do
   # =========================
 
   def search_type do
-
     type =
       IO.gets("Tipo: ")
       |> String.trim()
@@ -497,7 +454,6 @@ defmodule Inmobiliaria.CLI do
   # =========================
 
   def search_city do
-
     city =
       IO.gets("Ciudad: ")
       |> String.trim()
@@ -513,7 +469,6 @@ defmodule Inmobiliaria.CLI do
   # =========================
 
   def search_price do
-
     min =
       IO.gets("Precio mínimo: ")
       |> String.trim()
