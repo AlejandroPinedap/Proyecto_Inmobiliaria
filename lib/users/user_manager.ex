@@ -1,4 +1,5 @@
 defmodule Inmobiliaria.Users.UserManager do
+  alias Inmobiliaria.Persistence
   # =========================
   # CONNECT
   # =========================
@@ -94,14 +95,7 @@ defmodule Inmobiliaria.Users.UserManager do
   # =========================
 
   def load_users do
-    if File.exists?("data/users.dat") do
-      "data/users.dat"
-      |> File.read!()
-      |> String.split("\n", trim: true)
-      |> Enum.map(&parse_user/1)
-    else
-      []
-    end
+    Persistence.load_users()
   end
 
   # =========================
@@ -109,38 +103,7 @@ defmodule Inmobiliaria.Users.UserManager do
   # =========================
 
   def save_user(user) do
-    # Crear carpeta si no existe
-    File.mkdir_p!("data")
-
-    line =
-      "#{user.username};" <>
-        "#{user.password};" <>
-        "#{user.role};" <>
-        "#{user.points}\n"
-
-    File.write!(
-      "data/users.dat",
-      line,
-      [:append]
-    )
-  end
-
-  # =========================
-  # PARSE USER
-  # =========================
-
-  defp parse_user(line) do
-    [username, password, role, points] =
-      line
-      |> String.trim()
-      |> String.split(";")
-
-    %{
-      username: username,
-      password: password,
-      role: role,
-      points: String.to_integer(points)
-    }
+    Persistence.save_user(user)
   end
 
   # =========================
@@ -171,14 +134,7 @@ defmodule Inmobiliaria.Users.UserManager do
   # =========================
 
   def rewrite_users(users) do
-    content =
-      users
-      |> Enum.map(fn user ->
-        "#{user.username};#{user.password};#{user.role};#{user.points}\n"
-      end)
-      |> Enum.join("")
-
-    File.write!("data/users.dat", content)
+    Persistence.rewrite_users(users)
   end
 
   # =========================
