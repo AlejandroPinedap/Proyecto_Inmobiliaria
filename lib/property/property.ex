@@ -1,5 +1,4 @@
 defmodule Inmobiliaria.Property.Property do
-
   use GenServer
 
   alias Inmobiliaria.Users.UserManager
@@ -10,7 +9,6 @@ defmodule Inmobiliaria.Property.Property do
   # =====================
 
   def start_link(property_data) do
-
     GenServer.start_link(
       __MODULE__,
       property_data,
@@ -23,7 +21,6 @@ defmodule Inmobiliaria.Property.Property do
   # =====================
 
   def buy(property_id, client) do
-
     GenServer.call(
       via_tuple(property_id),
       {:buy, client}
@@ -35,7 +32,6 @@ defmodule Inmobiliaria.Property.Property do
   # =====================
 
   def rent(property_id, client) do
-
     GenServer.call(
       via_tuple(property_id),
       {:rent, client}
@@ -47,7 +43,6 @@ defmodule Inmobiliaria.Property.Property do
   # =====================
 
   def get_info(property_id) do
-
     GenServer.call(
       via_tuple(property_id),
       :get_info
@@ -59,9 +54,7 @@ defmodule Inmobiliaria.Property.Property do
   # =====================
 
   def via_tuple(property_id) do
-
-    {:via, Registry,
-      {Inmobiliaria.PropertyRegistry, property_id}}
+    {:via, Registry, {Inmobiliaria.PropertyRegistry, property_id}}
   end
 
   # =====================
@@ -70,7 +63,6 @@ defmodule Inmobiliaria.Property.Property do
 
   @impl true
   def init(property_data) do
-
     {:ok, property_data}
   end
 
@@ -80,7 +72,6 @@ defmodule Inmobiliaria.Property.Property do
 
   @impl true
   def handle_call(:get_info, _from, state) do
-
     {:reply, state, state}
   end
 
@@ -90,25 +81,15 @@ defmodule Inmobiliaria.Property.Property do
 
   @impl true
   def handle_call({:buy, client}, _from, state) do
-
     cond do
-
       state.status != :available ->
-
-        {:reply,
-          {:error, "La propiedad no está disponible"},
-          state}
+        {:reply, {:error, "La propiedad no está disponible"}, state}
 
       state.modality != "venta" ->
-
-        {:reply,
-          {:error, "La propiedad no es de venta"},
-          state}
+        {:reply, {:error, "La propiedad no es de venta"}, state}
 
       true ->
-
         new_state =
-
           state
           |> Map.put(:status, :sold)
           |> Map.put(:buyer, client)
@@ -131,9 +112,7 @@ defmodule Inmobiliaria.Property.Property do
 
         rewrite_property(new_state)
 
-        {:reply,
-          {:ok, "Propiedad comprada"},
-          new_state}
+        {:reply, {:ok, "Propiedad comprada"}, new_state}
     end
   end
 
@@ -143,25 +122,15 @@ defmodule Inmobiliaria.Property.Property do
 
   @impl true
   def handle_call({:rent, client}, _from, state) do
-
     cond do
-
       state.status != :available ->
-
-        {:reply,
-          {:error, "La propiedad no está disponible"},
-          state}
+        {:reply, {:error, "La propiedad no está disponible"}, state}
 
       state.modality != "arriendo" ->
-
-        {:reply,
-          {:error, "La propiedad no es de arriendo"},
-          state}
+        {:reply, {:error, "La propiedad no es de arriendo"}, state}
 
       true ->
-
         new_state =
-
           state
           |> Map.put(:status, :rented)
           |> Map.put(:tenant, client)
@@ -184,9 +153,7 @@ defmodule Inmobiliaria.Property.Property do
 
         rewrite_property(new_state)
 
-        {:reply,
-          {:ok, "Propiedad arrendada"},
-          new_state}
+        {:reply, {:ok, "Propiedad arrendada"}, new_state}
     end
   end
 
@@ -195,14 +162,11 @@ defmodule Inmobiliaria.Property.Property do
   # =========================
 
   def load_properties do
-
     if File.exists?("data/properties.dat") do
-
       "data/properties.dat"
       |> File.read!()
       |> String.split("\n", trim: true)
       |> Enum.map(&parse_property/1)
-
     else
       []
     end
@@ -213,10 +177,7 @@ defmodule Inmobiliaria.Property.Property do
   # =========================
 
   defp parse_property(line) do
-
-    [id, type, modality, city,
-     price, owner, status] =
-
+    [id, type, modality, city, price, owner, status] =
       String.split(line, ";")
 
     %{
@@ -235,14 +196,10 @@ defmodule Inmobiliaria.Property.Property do
   # =========================
 
   def rewrite_property(updated_property) do
-
-    properties =
-      load_properties()
+    properties = load_properties()
 
     updated_properties =
-
       Enum.map(properties, fn property ->
-
         if property.id == updated_property.id do
           updated_property
         else
@@ -251,22 +208,12 @@ defmodule Inmobiliaria.Property.Property do
       end)
 
     content =
-
-      Enum.map_join(updated_properties, "\n", fn p ->
-
-        "#{p.id};" <>
-        "#{p.type};" <>
-        "#{p.modality};" <>
-        "#{p.city};" <>
-        "#{p.price};" <>
-        "#{p.owner};" <>
-        "#{p.status}"
-
+      updated_properties
+      |> Enum.map(fn p ->
+        "#{p.id};#{p.type};#{p.modality};#{p.city};#{p.price};#{p.owner};#{p.status}\n"
       end)
+      |> Enum.join("")
 
-    File.write!(
-      "data/properties.dat",
-      content
-    )
+    File.write!("data/properties.dat", content)
   end
 end
