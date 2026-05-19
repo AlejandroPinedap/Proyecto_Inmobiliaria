@@ -1,3 +1,4 @@
-prop001;Casa;venta;Medellin;20000000;pedro;sold;3;100;ana
+prop001;Casa;venta;Medellin;20000000;pedro;available;3;100;ana
 prop002;Apartamento;venta;Cali;100000000;pedro;sold;2;100;alejo2
 prop100;Casa;venta;Bogota;200000000;pedro;available;0;0;
+prop004;Lote;arriendo;Armenia;25000000000;arrendo;rented;0;250;

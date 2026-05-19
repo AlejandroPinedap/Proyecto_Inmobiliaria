@@ -1,7 +1,7 @@
 defmodule Inmobiliaria.Property.PropertyManager do
   alias Inmobiliaria.Supervisors.PropertySupervisor
+  alias Inmobiliaria.Persistence
 
-  @properties_file "data/properties.dat"
 
   # =========================
   # CREAR PROPIEDAD
@@ -26,21 +26,7 @@ defmodule Inmobiliaria.Property.PropertyManager do
   # =========================
 
   def save_property(property) do
-    buyer = Map.get(property, :buyer, "")
-
-    line =
-      "#{property.id};" <>
-        "#{property.type};" <>
-        "#{property.modality};" <>
-        "#{property.city};" <>
-        "#{property.price};" <>
-        "#{property.owner};" <>
-        "#{property.status};" <>
-        "#{Map.get(property, :rooms, 0)};" <>
-        "#{Map.get(property, :area, 0)};" <>
-        "#{buyer}\n"
-
-    File.write!(@properties_file, line, [:append])
+    Persistence.save_property(property)
   end
 
   # =========================
@@ -75,16 +61,7 @@ end
   # =========================
 
   def rewrite_properties(properties) do
-    content =
-      properties
-      |> Enum.map(fn p ->
-        buyer = Map.get(p, :buyer, "")
-
-        "#{p.id};#{p.type};#{p.modality};#{p.city};#{p.price};#{p.owner};#{p.status};#{Map.get(p, :rooms, 0)};#{Map.get(p, :area, 0)};#{buyer}\n"
-      end)
-      |> Enum.join("")
-
-    File.write!(@properties_file, content)
+    Persistence.rewrite_properties(properties)
   end
 
   # =========================
@@ -100,72 +77,7 @@ end
   # =========================
 
   def load_properties do
-    if File.exists?(@properties_file) do
-      @properties_file
-      |> File.read!()
-      |> String.split("\n", trim: true)
-      |> Enum.map(&parse_property/1)
-      |> Enum.reject(&is_nil/1)
-    else
-      []
-    end
-  end
-
-  # =========================
-  # PARSEAR PROPIEDAD
-  # Soporta formato antiguo (sin buyer) y nuevo (con buyer)
-  # =========================
-
-  defp parse_property(line) do
-    case String.split(line, ";") do
-      # Formato nuevo: con buyer
-      [id, type, modality, city, price, owner, status, rooms, area, buyer] ->
-        %{
-          id: id,
-          type: type,
-          modality: modality,
-          city: city,
-          price: String.to_integer(price),
-          owner: owner,
-          status: String.to_atom(status),
-          rooms: String.to_integer(rooms),
-          area: String.to_integer(area),
-          buyer: buyer
-        }
-
-      # Formato con rooms/area pero sin buyer (retrocompatibilidad)
-      [id, type, modality, city, price, owner, status, rooms, area] ->
-        %{
-          id: id,
-          type: type,
-          modality: modality,
-          city: city,
-          price: String.to_integer(price),
-          owner: owner,
-          status: String.to_atom(status),
-          rooms: String.to_integer(rooms),
-          area: String.to_integer(area),
-          buyer: ""
-        }
-
-      # Formato mínimo sin rooms/area/buyer (retrocompatibilidad)
-      [id, type, modality, city, price, owner, status] ->
-        %{
-          id: id,
-          type: type,
-          modality: modality,
-          city: city,
-          price: String.to_integer(price),
-          owner: owner,
-          status: String.to_atom(status),
-          rooms: 0,
-          area: 0,
-          buyer: ""
-        }
-
-      _ ->
-        nil
-    end
+    Persistence.load_properties()
   end
 
   # =========================
@@ -247,6 +159,8 @@ end
         Modalidad: #{p.modality}
         Ciudad: #{p.city}
         Precio: #{p.price}
+        Habitaciones: #{p.rooms}
+        Area: #{p.area}
         Estado: #{p.status}
         Propietario: #{p.owner}
         Comprador: #{p.buyer}
@@ -262,7 +176,6 @@ end
 
   def restore_properties do
     load_properties()
-    |> Enum.filter(fn p -> p != nil end)
     |> Enum.each(fn p -> PropertySupervisor.start_property(p) end)
 
     IO.puts("Propiedades restauradas")

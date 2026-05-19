@@ -14,7 +14,7 @@ defmodule InmobiliariaWeb.DashboardLive do
 
     properties = PropertyManager.list_properties()
     _all_users = UserManager.load_users()
-    full_ranking = UserManager.ranking()
+    full_ranking = UserManager.ranking_all()
 
     # Propiedades visibles según rol
     visible_properties =
@@ -129,86 +129,134 @@ defmodule InmobiliariaWeb.DashboardLive do
   # =====================================================================
 
   def render(assigns) do
-    ~H"""
-    <div style="min-height:100vh; background:#f0f2f5; font-family:'Segoe UI',sans-serif;">
+  ~H"""
+  <div style="display:flex; min-height:100vh; font-family:'Segoe UI',sans-serif;">
 
-      <!-- NAV -->
-      <nav style="background:#1a1a2e; padding:1rem 2rem; display:flex; justify-content:space-between; align-items:center; box-shadow:0 2px 12px rgba(0,0,0,0.3);">
-        <span style="color:white; font-size:1.25rem; font-weight:700;">🏠 Inmobiliaria</span>
-        <div style="display:flex; gap:1rem; align-items:center;">
-          <a href={"/properties?user=#{@username}&role=#{@role}"} style="color:#a5b4fc; text-decoration:none; font-weight:500;">Propiedades</a>
-          <a href={"/chat?user=#{@username}&role=#{@role}"}
-            style="color:#a5b4fc; text-decoration:none; font-weight:500; display:inline-flex; align-items:center; gap:0.3rem;">
-            Chat
-            <%= if @unread_count > 0 do %>
-              <span style="background:#dc2626; color:white; font-size:0.65rem; padding:0.1rem 0.4rem; border-radius:999px; font-weight:700; line-height:1.2;">
-                <%= @unread_count %>
-              </span>
-            <% end %>
-          </a>
-          <a href="/" style="color:#f87171; text-decoration:none; font-weight:500;">Salir</a>
+    <!-- ========== SIDEBAR ========== -->
+    <aside style="width:240px; min-width:240px; background:#1a1a2e; display:flex; flex-direction:column; padding:0; box-shadow:4px 0 12px rgba(0,0,0,0.3);">
+
+      <!-- Logo -->
+      <div style="padding:1.5rem 1.25rem; border-bottom:1px solid rgba(255,255,255,0.08);">
+        <div style="font-size:1.2rem; font-weight:800; color:white;">🏠 Inmobiliaria</div>
+        <div style="font-size:0.7rem; color:#a5b4fc; margin-top:0.2rem; letter-spacing:0.05em; text-transform:uppercase;">Sistema Virtual</div>
+      </div>
+
+      <!-- Usuario -->
+      <div style="padding:1.25rem; border-bottom:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; gap:0.75rem;">
+        <div style={"width:38px; height:38px; border-radius:50%; background:#{role_color(@role)}; display:flex; align-items:center; justify-content:center; font-weight:700; color:white; font-size:1rem; flex-shrink:0;"}>
+          <%= String.upcase(String.first(@username)) %>
         </div>
-      </nav>
-
-      <!-- HEADER -->
-      <div style="padding:2rem 2rem 0; max-width:1200px; margin:0 auto;">
-        <h1 style="color:#1a1a2e; margin-bottom:0.25rem;">📊 Dashboard</h1>
-        <p style="color:#888; margin-bottom:1.5rem;">
-          Bienvenido, <strong><%= @username %></strong> ·
-          <span style={"color:#{role_color(@role)}; font-weight:600; text-transform:capitalize;"}><%= @role %></span>
-          <%= if @user_rank do %>
-            · <span style="color:#7c3aed; font-weight:600;">🏆 Posición #<%= @user_rank %> en el ranking</span>
-          <% end %>
-        </p>
-
-        <!-- TABS -->
-        <div style="display:flex; gap:0.5rem; margin-bottom:1.5rem; border-bottom:2px solid #e5e7eb;">
-          <button
-            phx-click="switch_tab" phx-value-tab="dashboard"
-            style={"padding:0.6rem 1.25rem; border:none; cursor:pointer; font-weight:600; font-size:0.95rem; border-radius:8px 8px 0 0; transition:all 0.2s;
-              #{if @active_tab == "dashboard", do: "background:#4f46e5; color:white;", else: "background:transparent; color:#666;"}"}
-          >
-            📊 Resumen
-          </button>
-          <button
-            phx-click="switch_tab" phx-value-tab="ranking"
-            style={"padding:0.6rem 1.25rem; border:none; cursor:pointer; font-weight:600; font-size:0.95rem; border-radius:8px 8px 0 0; transition:all 0.2s;
-              #{if @active_tab == "ranking", do: "background:#7c3aed; color:white;", else: "background:transparent; color:#666;"}"}
-          >
-            🏆 Ranking
-          </button>
-          <button
-            phx-click="switch_tab" phx-value-tab="historial"
-            style={"padding:0.6rem 1.25rem; border:none; cursor:pointer; font-weight:600; font-size:0.95rem; border-radius:8px 8px 0 0; transition:all 0.2s;
-              #{if @active_tab == "historial", do: "background:#0891b2; color:white;", else: "background:transparent; color:#666;"}"}
-          >
-            📋 Historial
-          </button>
+        <div>
+          <div style="color:white; font-weight:600; font-size:0.875rem;"><%= @username %></div>
+          <div style={"color:#{role_color(@role)}; font-size:0.7rem; text-transform:capitalize; font-weight:500;"}><%= @role %></div>
         </div>
       </div>
 
-      <!-- CONTENIDO POR TAB -->
-      <div style="padding:0 2rem 2rem; max-width:1200px; margin:0 auto;">
+      <!-- Menú de navegación -->
+      <nav style="flex:1; padding:1rem 0;">
 
-        <!-- ==================== TAB: DASHBOARD ==================== -->
+        <div style="padding:0.25rem 1.25rem; font-size:0.65rem; color:#6b7280; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:0.25rem;">
+          Menú
+        </div>
+
+        <button phx-click="switch_tab" phx-value-tab="dashboard"
+          style={"width:100%; text-align:left; padding:0.7rem 1.25rem; border:none; cursor:pointer; display:flex; align-items:center; gap:0.75rem; font-size:0.875rem; font-weight:500; transition:all 0.15s;
+            #{if @active_tab == "dashboard", do: "background:rgba(79,70,229,0.35); color:white; border-left:3px solid #4f46e5;", else: "background:transparent; color:#9ca3af; border-left:3px solid transparent;"}"}
+        >
+          📊 <span>Resumen</span>
+        </button>
+
+        <button phx-click="switch_tab" phx-value-tab="ranking"
+          style={"width:100%; text-align:left; padding:0.7rem 1.25rem; border:none; cursor:pointer; display:flex; align-items:center; gap:0.75rem; font-size:0.875rem; font-weight:500; transition:all 0.15s;
+            #{if @active_tab == "ranking", do: "background:rgba(124,58,237,0.35); color:white; border-left:3px solid #7c3aed;", else: "background:transparent; color:#9ca3af; border-left:3px solid transparent;"}"}
+        >
+          🏆 <span>Ranking</span>
+        </button>
+
+        <button phx-click="switch_tab" phx-value-tab="historial"
+          style={"width:100%; text-align:left; padding:0.7rem 1.25rem; border:none; cursor:pointer; display:flex; align-items:center; gap:0.75rem; font-size:0.875rem; font-weight:500; transition:all 0.15s;
+            #{if @active_tab == "historial", do: "background:rgba(8,145,178,0.35); color:white; border-left:3px solid #0891b2;", else: "background:transparent; color:#9ca3af; border-left:3px solid transparent;"}"}
+        >
+          📋 <span>Historial</span>
+        </button>
+
+        <div style="padding:0.25rem 1.25rem; font-size:0.65rem; color:#6b7280; text-transform:uppercase; letter-spacing:0.08em; margin:1rem 0 0.25rem;">
+          Accesos
+        </div>
+
+        <a href={"/properties?user=#{@username}&role=#{@role}"}
+          style="display:flex; align-items:center; gap:0.75rem; padding:0.7rem 1.25rem; color:#9ca3af; text-decoration:none; font-size:0.875rem; font-weight:500; border-left:3px solid transparent; transition:all 0.15s;"
+          onmouseover="this.style.color='white'" onmouseout="this.style.color='#9ca3af'">
+          🏘️ <span>Propiedades</span>
+        </a>
+
+        <a href={"/chat?user=#{@username}&role=#{@role}"}
+          style="display:flex; align-items:center; gap:0.75rem; padding:0.7rem 1.25rem; color:#9ca3af; text-decoration:none; font-size:0.875rem; font-weight:500; border-left:3px solid transparent; transition:all 0.15s;"
+          onmouseover="this.style.color='white'" onmouseout="this.style.color='#9ca3af'">
+          💬
+          <span>Chat</span>
+          <%= if @unread_count > 0 do %>
+            <span style="margin-left:auto; background:#dc2626; color:white; font-size:0.65rem; padding:0.1rem 0.45rem; border-radius:999px; font-weight:700;">
+              <%= @unread_count %>
+            </span>
+          <% end %>
+        </a>
+
+      </nav>
+
+      <!-- Botón salir -->
+      <div style="padding:1rem 1.25rem; border-top:1px solid rgba(255,255,255,0.08);">
+        <a href="/"
+          style="display:flex; align-items:center; gap:0.75rem; color:#f87171; text-decoration:none; font-size:0.875rem; font-weight:500; padding:0.5rem 0;">
+          🚪 <span>Cerrar sesión</span>
+        </a>
+      </div>
+    </aside>
+
+    <!-- ========== CONTENIDO PRINCIPAL ========== -->
+    <div style="flex:1; display:flex; flex-direction:column; overflow:hidden;">
+
+      <!-- Topbar -->
+      <header style="background:white; padding:1rem 2rem; display:flex; justify-content:space-between; align-items:center; box-shadow:0 1px 4px rgba(0,0,0,0.08); border-bottom:1px solid #e5e7eb;">
+        <div>
+          <h1 style="margin:0; font-size:1.1rem; font-weight:700; color:#1a1a2e;">
+            <%= case @active_tab do %>
+              <% "dashboard" -> %> 📊 Resumen General
+              <% "ranking" -> %> 🏆 Ranking Global
+              <% "historial" -> %> 📋 Historial
+            <% end %>
+          </h1>
+          <p style="margin:0; font-size:0.75rem; color:#9ca3af;">
+            Bienvenido, <strong><%= @username %></strong>
+            <%= if @user_rank do %>
+              · 🏅 Posición <strong>#<%= @user_rank %></strong>
+            <% end %>
+          </p>
+        </div>
+        <div style="display:flex; align-items:center; gap:0.5rem;">
+          <span style={"background:#{role_color(@role)}18; color:#{role_color(@role)}; font-size:0.75rem; font-weight:600; padding:0.3rem 0.75rem; border-radius:999px; text-transform:capitalize;"}>
+            <%= @role %>
+          </span>
+        </div>
+      </header>
+
+      <!-- Área de contenido -->
+      <main style="flex:1; overflow-y:auto; padding:1.5rem 2rem; background:#f0f2f5;">
         <%= if @active_tab == "dashboard" do %>
           <%= render_dashboard(assigns) %>
         <% end %>
-
-        <!-- ==================== TAB: RANKING ==================== -->
         <%= if @active_tab == "ranking" do %>
           <%= render_ranking(assigns) %>
         <% end %>
-
-        <!-- ==================== TAB: HISTORIAL ==================== -->
         <%= if @active_tab == "historial" do %>
           <%= render_historial(assigns) %>
         <% end %>
+      </main>
 
-      </div>
     </div>
-    """
-  end
+  </div>
+  """
+end
 
   # =====================================================================
   # RENDER: DASHBOARD (resumen original)
@@ -628,6 +676,10 @@ defmodule InmobiliariaWeb.DashboardLive do
   defp property_icon("Bodega"), do: "🏭"
   defp property_icon("Terreno"), do: "🌳"
   defp property_icon(_), do: "🏗️"
+
+  defp format_number(price) when is_float(price) do
+    price |> trunc() |> format_number()
+  end
 
   defp format_number(price) when is_integer(price) do
     price

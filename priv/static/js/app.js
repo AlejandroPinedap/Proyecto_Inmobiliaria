@@ -6,6 +6,20 @@ let csrfToken =
     .querySelector("meta[name='csrf-token']")
     .getAttribute("content")
 
+let Hooks = {}
+
+Hooks.ScrollBottom = {
+  mounted() {
+    this.scrollToBottom()
+  },
+  updated (){
+    this.scrollToBottom()
+  },
+  scrollToBottom() {
+    this.el.scrollTop = this.el.scrollHeigth
+  }
+}
+
 let liveSocket =
   new LiveSocket("/live", Socket, {
     params: {

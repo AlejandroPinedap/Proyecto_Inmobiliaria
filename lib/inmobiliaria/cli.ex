@@ -266,10 +266,7 @@ defmodule Inmobiliaria.CLI do
   def list_properties do
     properties =
       PropertyManager.list_properties()
-
-    Enum.each(properties, fn p ->
-      IO.puts(p)
-    end)
+      PropertyManager.show_properties(properties)
   end
 
   # =========================
@@ -425,7 +422,7 @@ defmodule Inmobiliaria.CLI do
 
   def show_ranking do
     ranking =
-      UserManager.ranking()
+      UserManager.ranking_all()
 
     IO.puts("\n=== RANKING ===\n")
 
