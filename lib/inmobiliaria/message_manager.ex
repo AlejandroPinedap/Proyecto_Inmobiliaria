@@ -7,6 +7,7 @@ defmodule Inmobiliaria.Messages.MessageManager do
   # =========================
 
   def send_message(property_id, client, owner, sender, message) do
+    File.mkdir_p!("data")
     date = DateTime.utc_now() |> DateTime.to_string()
 
     line =

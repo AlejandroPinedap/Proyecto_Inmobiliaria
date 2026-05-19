@@ -422,7 +422,7 @@ defmodule Inmobiliaria.CLI do
 
   def show_ranking do
     ranking =
-      UserManager.ranking()
+      UserManager.ranking_all()
 
     IO.puts("\n=== RANKING ===\n")
 

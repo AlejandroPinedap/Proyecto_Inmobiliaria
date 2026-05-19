@@ -179,10 +179,8 @@ defmodule Inmobiliaria.Users.UserManager do
   # RANKING
   # =========================
 
-  def ranking do
+  def ranking_all do
     load_users()
-    |> Enum.sort_by(fn user ->
-      -user.points
-    end)
+    |> Enum.sort_by(fn u -> -u.points end)
   end
 end

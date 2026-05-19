@@ -3,6 +3,7 @@ defmodule Inmobiliaria.Property.Property do
 
   alias Inmobiliaria.Users.UserManager
   alias Inmobiliaria.Operations.OperationLogger
+  alias Inmobiliaria.Property.PropertyManager
 
   # =====================
   # CLIENT
@@ -95,11 +96,7 @@ defmodule Inmobiliaria.Property.Property do
           |> Map.put(:buyer, client)
 
         UserManager.add_points(client, 10)
-
-        UserManager.add_points(
-          state.owner,
-          15
-        )
+        UserManager.add_points(state.owner, 15)
 
         OperationLogger.log_operation(
           client,
@@ -110,9 +107,9 @@ defmodule Inmobiliaria.Property.Property do
           state.price
         )
 
-        rewrite_property(new_state)
-
-        {:reply, {:ok, "Propiedad comprada"}, new_state}
+        PropertyManager.update_property(new_state)
+        Inmobiliaria.NotificationManager.increment(state.owner)
+        {:reply, {:ok, "Propiedad comprada exitosamente"}, new_state}
     end
   end
 
@@ -133,14 +130,10 @@ defmodule Inmobiliaria.Property.Property do
         new_state =
           state
           |> Map.put(:status, :rented)
-          |> Map.put(:tenant, client)
+          |> Map.put(:buyer, client)
 
         UserManager.add_points(client, 8)
-
-        UserManager.add_points(
-          state.owner,
-          12
-        )
+        UserManager.add_points(state.owner, 12)
 
         OperationLogger.log_operation(
           client,
@@ -151,69 +144,10 @@ defmodule Inmobiliaria.Property.Property do
           state.price
         )
 
-        rewrite_property(new_state)
+        PropertyManager.update_property(new_state)
+        Inmobiliaria.NotificationManager.increment(state.owner)
 
-        {:reply, {:ok, "Propiedad arrendada"}, new_state}
+        {:reply, {:ok, "Propiedad arrendada exitosamente"}, new_state}
     end
-  end
-
-  # =========================
-  # CARGAR PROPIEDADES
-  # =========================
-
-  def load_properties do
-    if File.exists?("data/properties.dat") do
-      "data/properties.dat"
-      |> File.read!()
-      |> String.split("\n", trim: true)
-      |> Enum.map(&parse_property/1)
-    else
-      []
-    end
-  end
-
-  # =========================
-  # PARSEAR
-  # =========================
-
-  defp parse_property(line) do
-    [id, type, modality, city, price, owner, status] =
-      String.split(line, ";")
-
-    %{
-      id: id,
-      type: type,
-      modality: modality,
-      city: city,
-      price: String.to_integer(price),
-      owner: owner,
-      status: String.to_atom(status)
-    }
-  end
-
-  # =========================
-  # REESCRIBIR PROPIEDAD
-  # =========================
-
-  def rewrite_property(updated_property) do
-    properties = load_properties()
-
-    updated_properties =
-      Enum.map(properties, fn property ->
-        if property.id == updated_property.id do
-          updated_property
-        else
-          property
-        end
-      end)
-
-    content =
-      updated_properties
-      |> Enum.map(fn p ->
-        "#{p.id};#{p.type};#{p.modality};#{p.city};#{p.price};#{p.owner};#{p.status}\n"
-      end)
-      |> Enum.join("")
-
-    File.write!("data/properties.dat", content)
   end
 end

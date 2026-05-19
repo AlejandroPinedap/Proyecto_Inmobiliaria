@@ -24,6 +24,9 @@ defmodule Inmobiliaria.Application do
       # Supervisor de propiedades
       Inmobiliaria.Supervisors.PropertySupervisor,
 
+      # Servidor TCP  ← AGREGAR ESTO
+      Inmobiliaria.Server,
+
       # Phoenix
       InmobiliariaWeb.Endpoint
     ]

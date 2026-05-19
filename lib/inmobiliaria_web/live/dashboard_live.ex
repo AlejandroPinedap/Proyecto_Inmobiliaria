@@ -14,7 +14,7 @@ defmodule InmobiliariaWeb.DashboardLive do
 
     properties = PropertyManager.list_properties()
     _all_users = UserManager.load_users()
-    full_ranking = UserManager.ranking()
+    full_ranking = UserManager.ranking_all()
 
     # Propiedades visibles según rol
     visible_properties =
@@ -628,6 +628,10 @@ defmodule InmobiliariaWeb.DashboardLive do
   defp property_icon("Bodega"), do: "🏭"
   defp property_icon("Terreno"), do: "🌳"
   defp property_icon(_), do: "🏗️"
+
+  defp format_number(price) when is_float(price) do
+    price |> trunc() |> format_number()
+  end
 
   defp format_number(price) when is_integer(price) do
     price

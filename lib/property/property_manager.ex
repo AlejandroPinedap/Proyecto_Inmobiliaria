@@ -26,21 +26,7 @@ defmodule Inmobiliaria.Property.PropertyManager do
   # =========================
 
   def save_property(property) do
-    buyer = Map.get(property, :buyer, "")
-
-    line =
-      "#{property.id};" <>
-        "#{property.type};" <>
-        "#{property.modality};" <>
-        "#{property.city};" <>
-        "#{property.price};" <>
-        "#{property.owner};" <>
-        "#{property.status};" <>
-        "#{Map.get(property, :rooms, 0)};" <>
-        "#{Map.get(property, :area, 0)};" <>
-        "#{buyer}\n"
-
-    File.write!("data/properties.dat", line, [:append])
+    Persistence.save_property(property)
   end
 
   # =========================
@@ -92,7 +78,6 @@ end
 
   def load_properties do
     Persistence.load_properties()
-      |> Enum.reject(&is_nil/1)
   end
 
   # =========================
@@ -174,6 +159,8 @@ end
         Modalidad: #{p.modality}
         Ciudad: #{p.city}
         Precio: #{p.price}
+        Habitaciones: #{p.rooms}
+        Area: #{p.area}
         Estado: #{p.status}
         Propietario: #{p.owner}
         Comprador: #{p.buyer}
@@ -189,7 +176,6 @@ end
 
   def restore_properties do
     load_properties()
-    |> Enum.filter(fn p -> p != nil end)
     |> Enum.each(fn p -> PropertySupervisor.start_property(p) end)
 
     IO.puts("Propiedades restauradas")

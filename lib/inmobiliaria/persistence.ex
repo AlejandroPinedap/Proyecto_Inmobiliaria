@@ -12,6 +12,7 @@ defmodule Inmobiliaria.Persistence do
       |> File.read!()
       |> String.split("\n", trim: true)
       |> Enum.map(&parse_user_line/1)
+      |> Enum.reject(&is_nil/1)
     else
       []
     end
@@ -26,9 +27,9 @@ defmodule Inmobiliaria.Persistence do
 
     line =
       "#{user.username};" <>
-      "#{user.password};" <>
-      "#{user.role};" <>
-      "#{user.points}\n"
+        "#{user.password};" <>
+        "#{user.role};" <>
+        "#{user.points}\n"
 
     File.write!(@users_file, line, [:append])
   end
@@ -40,29 +41,32 @@ defmodule Inmobiliaria.Persistence do
   def rewrite_users(users) do
     content =
       users
-      |> Enum.map(fn user -> "#{user.username};#{user.password};#{user.role};#{user.points}\n" end)
+      |> Enum.map(fn user ->
+        "#{user.username};#{user.password};#{user.role};#{user.points}\n"
+      end)
       |> Enum.join("")
 
     File.write!(@users_file, content)
   end
-
 
   # ==========================
   # USERS: PARSE LINE
   # ==========================
 
   defp parse_user_line(line) do
-    [username, password, role, points] =
-      line
-      |> String.trim()
-      |> String.split(";")
+    case line |> String.trim() |> String.split(";") do
+      [username, password, role, points] ->
+        %{
+          username: username,
+          password: password,
+          role: role,
+          points: String.to_integer(points)
+        }
 
-      %{
-        username: username,
-        password: password,
-        role: role,
-        points: String.to_integer(points)
-      }
+      _ ->
+        # Linea con formato incorrecto  se descarta
+        nil
+    end
   end
 
   # ==========================
@@ -75,9 +79,33 @@ defmodule Inmobiliaria.Persistence do
       |> File.read!()
       |> String.split("\n", trim: true)
       |> Enum.map(&parse_property_line/1)
+      |> Enum.reject(&is_nil/1)
     else
       []
     end
+  end
+
+  # ==========================
+  # PROPERTIES: SAVE ONE
+  # ==========================
+
+  def save_property(property) do
+    File.mkdir_p!("data")
+    buyer = Map.get(property, :buyer, "")
+
+    line =
+      "#{property.id};" <>
+        "#{property.type};" <>
+        "#{property.modality};" <>
+        "#{property.city};" <>
+        "#{property.price};" <>
+        "#{property.owner};" <>
+        "#{property.status};" <>
+        "#{Map.get(property, :rooms, 0)};" <>
+        "#{Map.get(property, :area, 0)};" <>
+        "#{buyer}\n"
+
+    File.write!(@properties_file, line, [:append])
   end
 
   # ==========================
@@ -98,53 +126,42 @@ defmodule Inmobiliaria.Persistence do
   # ==========================
 
   defp parse_property_line(line) do
-    [
-      id,
-      type,
-      modality,
-      city,
-      price,
-      owner,
-      status,
-      rooms,
-      area,
-      buyer
-    ] =
-      line
-      |> String.trim()
-      |> String.split(";")
+    case line |> String.trim() |> String.split(";") do
+      [id, type, modality, city, price, owner, status, rooms, area, buyer] ->
+        %{
+          id: id,
+          type: type,
+          modality: modality,
+          city: city,
+          price: String.to_integer(price),
+          owner: owner,
+          status: String.to_atom(status),
+          rooms: String.to_integer(rooms),
+          area: String.to_integer(area),
+          buyer: buyer
+        }
 
-    %{
-      id: id,
-      type: type,
-      modality: modality,
-      city: city,
-      price: String.to_integer(price),
-      owner: owner,
-      status: String.to_atom(status),
-      rooms: String.to_integer(rooms),
-      area: String.to_integer(area),
-      buyer: buyer
-    }
+      _ ->
+        nil
+    end
   end
 
   # ==========================
-  # PROPERTIES: PARSE LINE
+  # PROPERTIES: FORMAT LINE
   # ==========================
 
   defp format_property_line(property) do
-    id = property.id
-    type = property.type
-    modality = property.modality
-    city = property.city
-    price = property.price
-    owner = property.owner
-    status = property.status
-    rooms = property.rooms
-    area = property.area
     buyer = property.buyer || ""
 
-    "#{id};#{type};#{modality};#{city};#{price};#{owner};#{status};#{rooms};#{area};#{buyer}\n"
+    "#{property.id};" <>
+      "#{property.type};" <>
+      "#{property.modality};" <>
+      "#{property.city};" <>
+      "#{property.price};" <>
+      "#{property.owner};" <>
+      "#{property.status};" <>
+      "#{property.rooms};" <>
+      "#{property.area};" <>
+      "#{buyer}\n"
   end
-
 end

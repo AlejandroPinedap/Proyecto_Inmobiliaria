@@ -191,14 +191,16 @@ defmodule InmobiliariaWeb.PropertiesLive do
 
   def handle_event("change_status", %{"id" => id, "status" => status}, socket) do
     properties = socket.assigns.properties
-
     case Enum.find(properties, &(&1.id == id)) do
-      nil ->
-        {:noreply, socket}
-
+      nil -> {:noreply, socket}
       property ->
         updated = %{property | status: String.to_atom(status)}
         PropertyManager.update_property(updated)
+
+        if updated.buyer != "" do
+          Inmobiliaria.NotificationManager.increment(updated.buyer)
+        end
+        
         properties = load_for_role(socket.assigns.username, socket.assigns.role)
         {:noreply, assign(socket, properties: properties, filtered: properties)}
     end
@@ -670,6 +672,10 @@ defmodule InmobiliariaWeb.PropertiesLive do
   defp status_label(:sold), do: "Vendida"
   defp status_label(:rented), do: "Arrendada"
   defp status_label(other), do: to_string(other)
+
+  defp format_number(price) when is_float(price) do
+    price |> trunc() |> format_number()
+  end
 
   defp format_number(price) when is_integer(price) do
     price

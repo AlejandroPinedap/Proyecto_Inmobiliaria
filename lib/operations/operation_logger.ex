@@ -62,4 +62,14 @@ defmodule Inmobiliaria.Operations.OperationLogger do
       IO.puts("No hay operaciones")
     end
   end
+
+  def get_history do
+    if File.exists?("data/results.log") do
+      content = File.read!("data/results.log")
+      if String.trim(content) == "", do: "", else: content
+    else
+      ""
+    end
+  end
+
 end
